@@ -6,10 +6,11 @@ import os
 import time
 from google.appengine.api import urlfetch, urlfetch_errors, taskqueue
 from google.appengine.ext import db
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def getDevo():
-    devo_url = 'http://www.duranno.com/livinglife/qt/reload_default.asp'
+    date = (datetime.utcnow() + timedelta(hours=8)).strftime('%Y-%m-%d')
+    devo_url = 'http://www.duranno.com/livinglife/qt/reload_default.asp?OD=' + date
 
     try:
         result = urlfetch.fetch(devo_url, deadline=10)
