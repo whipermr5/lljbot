@@ -150,7 +150,7 @@ class LljPage(webapp2.RequestHandler):
             devo = 'Sorry, I\'m having some difficulty accessing the LLJ website. Please try again later.'
         sendMessage(id, devo)
 
-class EnqueuePage(webapp2.RequestHandler):
+class SendPage(webapp2.RequestHandler):
     def get(self):
         query = User.all()
         query.filter('active =', True)
@@ -159,9 +159,9 @@ class EnqueuePage(webapp2.RequestHandler):
             for user in query.run(keys_only=True):
                 sendMessage(user.name(), devo)
         else:
-            taskqueue.add(url='/send')
+            taskqueue.add(url='/retry')
 
-class SendPage(webapp2.RequestHandler):
+class RetryPage(webapp2.RequestHandler):
     def post(self):
         query = User.all()
         query.filter('active =', True)
@@ -174,6 +174,6 @@ class SendPage(webapp2.RequestHandler):
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/' + token, LljPage),
-    ('/enqueue', EnqueuePage),
     ('/send', SendPage),
+    ('/retry', RetryPage),
 ], debug=True)
