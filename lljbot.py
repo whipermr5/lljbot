@@ -65,7 +65,7 @@ def getDevo():
     prayer = format(prayer[start:end])
 
     devo = u'\U0001F4C5' + ' Today\'s QT - _' + date + '_\n\n*' + heading + '*\n' + verse + '\n\n' + \
-           u'\U0001F4D9' + ' *Scripture*\n\n' + passage + '\n\n' + \
+           u'\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + passage + '\n\n' + \
            u'\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
            u'\U0001F64F' + ' *Prayer*\n\n' + prayer
     return devo
@@ -82,7 +82,7 @@ class User(db.Model):
     created = db.DateTimeProperty(auto_now_add=True)
     last_received = db.DateTimeProperty(auto_now_add=True)
     last_sent = db.DateTimeProperty()
-    active = db.BooleanProperty()
+    active = db.BooleanProperty(default=True)
 
 def update(uid, uname, fname, lname):
     key = db.Key.from_path('User', str(uid))
@@ -95,7 +95,7 @@ def update(uid, uname, fname, lname):
         existing_user.active = True
         existing_user.put()
     else:
-        user = User(key_name=str(uid), username = uname, first_name=fname, last_name=lname, active=True)
+        user = User(key_name=str(uid), username=uname, first_name=fname, last_name=lname)
         user.put()
 
 def sendMessage(uid, text):
@@ -142,7 +142,6 @@ class LljPage(webapp2.RequestHandler):
             first_name = data.get('message').get('chat').get('title')
             last_name = None
         update(id, username, first_name, last_name)
-        text = data.get('message').get('text')
         sendMessage(id, getDevo())
 
 app = webapp2.WSGIApplication([
