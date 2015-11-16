@@ -3,13 +3,19 @@ import urllib
 import json
 import HTMLParser
 import os
-from google.appengine.api import urlfetch
+import time
+from google.appengine.api import urlfetch, urlfetch_errors, taskqueue
 from google.appengine.ext import db
 from datetime import datetime
 
 def getDevo():
     devo_url = 'http://www.duranno.com/livinglife/qt/reload_default.asp'
-    result = urlfetch.fetch(devo_url)
+
+    try:
+        result = urlfetch.fetch(devo_url, deadline=10)
+    except urlfetch_errors.Error as e:
+        return None
+
     content = result.content.decode('cp949', 'ignore')
 
     h = HTMLParser.HTMLParser()
@@ -116,6 +122,9 @@ def sendMessage(uid, text):
             if existing_user:
                 existing_user.active = False
                 existing_user.put()
+        else:
+            time.sleep(1)
+            urlfetch.fetch(url=url_send_message, payload=json.dumps(data), method=urlfetch.POST, headers=headers)
 
 class MainPage(webapp2.RequestHandler):
     def get(self):
@@ -123,12 +132,6 @@ class MainPage(webapp2.RequestHandler):
         self.response.write('LLJBot backend running...\n')
 
 class LljPage(webapp2.RequestHandler):
-    def get(self):
-        query = User.all()
-        query.filter('active =', True)
-        for user in query.run(keys_only=True):
-            sendMessage(user.name(), getDevo())
-
     def post(self):
         data = json.loads(self.request.body)
         if data.get('message').get('chat').get('type') == 'private':
@@ -142,10 +145,28 @@ class LljPage(webapp2.RequestHandler):
             first_name = data.get('message').get('chat').get('title')
             last_name = None
         update(id, username, first_name, last_name)
-        sendMessage(id, getDevo())
+        devo = getDevo()
+        if devo ==  None:
+            devo = 'Sorry, I\'m having some difficulty accessing the LLJ website. Please try again later.'
+        sendMessage(id, devo)
+
+class EnqueuePage(webapp2.RequestHandler):
+    def get(self):
+        taskqueue.add(url='/send')
+
+class SendPage(webapp2.RequestHandler):
+    def post(self):
+        query = User.all()
+        query.filter('active =', True)
+        devo = getDevo()
+        if devo ==  None:
+            self.abort(502)
+        for user in query.run(keys_only=True):
+            sendMessage(user.name(), devo)
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/' + token, LljPage),
-    ('/send', LljPage),
+    ('/enqueue', EnqueuePage),
+    ('/send', SendPage),
 ], debug=True)
