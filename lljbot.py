@@ -163,6 +163,7 @@ class SendPage(webapp2.RequestHandler):
             self.abort(502)
         for user in query.run(keys_only=True):
             sendMessage(user.name(), devo)
+            time.sleep(0.0333)
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
