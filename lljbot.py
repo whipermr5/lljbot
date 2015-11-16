@@ -152,7 +152,14 @@ class LljPage(webapp2.RequestHandler):
 
 class EnqueuePage(webapp2.RequestHandler):
     def get(self):
-        taskqueue.add(url='/send')
+        query = User.all()
+        query.filter('active =', True)
+        devo = getDevo()
+        if devo:
+            for user in query.run(keys_only=True):
+                sendMessage(user.name(), devo)
+        else:
+            taskqueue.add(url='/send')
 
 class SendPage(webapp2.RequestHandler):
     def post(self):
@@ -163,7 +170,6 @@ class SendPage(webapp2.RequestHandler):
             self.abort(502)
         for user in query.run(keys_only=True):
             sendMessage(user.name(), devo)
-            time.sleep(0.0333)
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
