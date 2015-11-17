@@ -103,6 +103,9 @@ class User(db.Model):
     last_sent = db.DateTimeProperty()
     active = db.BooleanProperty(default=True)
 
+    def isGroup(self):
+        return int(self.key().name()) < 0
+
     def isActive(self):
         return self.active
 
@@ -234,6 +237,9 @@ class LljPage(webapp2.RequestHandler):
         elif command == '/tomorrow' or command == '/tomorrow@LljBot':
             response = getDevo(1)
         else:
+            if user.isGroup():
+                return
+
             response = 'Sorry ' + first_name.strip() + ', I couldn\'t understand that. ' + \
                        'Please enter one of the following commands:'
             if user.isActive():
