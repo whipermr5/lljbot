@@ -103,29 +103,41 @@ class User(db.Model):
     last_sent = db.DateTimeProperty()
     active = db.BooleanProperty(default=True)
 
-def update(uid, uname, fname, lname):
+    def isActive(self):
+        return self.active
+
+    def setActive(self, active):
+        self.active = active
+
+    def updateLastReceived(self):
+        self.last_received = datetime.now()
+
+    def updateLastSent(self):
+        self.last_sent = datetime.now()
+
+def getUser(uid):
     key = db.Key.from_path('User', str(uid))
-    existing_user = db.get(key)
+    return db.get(key)
+
+def updateProfile(uid, uname, fname, lname):
+    existing_user = getUser(uid)
     if existing_user:
         existing_user.username = uname
         existing_user.first_name = fname
         existing_user.last_name = lname
-        existing_user.last_received = datetime.now()
-        existing_user.active = True
+        existing_user.updateLastReceived()
         existing_user.put()
+        return existing_user
     else:
         user = User(key_name=str(uid), username=uname, first_name=fname, last_name=lname)
         user.put()
+        return user
 
 def sendMessage(uid, text):
     if len(text) > 4096:
         sendLongMessage(uid, text)
         return
-    key = db.Key.from_path('User', str(uid))
-    existing_user = db.get(key)
-    if existing_user:
-        existing_user.last_sent = datetime.now()
-        existing_user.put()
+
     data = {
         'chat_id': uid,
         'text': text,
@@ -141,6 +153,10 @@ def sendMessage(uid, text):
         else:
             time.sleep(1)
             urlfetch.fetch(url=url_send_message, payload=json.dumps(data), method=urlfetch.POST, headers=headers)
+
+    existing_user = getUser(uid)
+    if existing_user:
+        existing_user.updateLastSent()
 
 def sendLongMessage(uid, text):
     n = 4096
@@ -167,20 +183,37 @@ class LljPage(webapp2.RequestHandler):
             username = None
             first_name = data.get('message').get('chat').get('title')
             last_name = None
-        update(id, username, first_name, last_name)
+        user = updateProfile(id, username, first_name, last_name)
 
         command = data.get('message').get('text').strip()
-        if command == '/yesterday' or command == '/yesterday@LljBot':
-            devo = getDevo(-1)
+        if command == '/subscribe' or command == '/subscribe@LljBot':
+            if user.isActive():
+                response = 'Looks like you are already subscribed!'
+            else:
+                user.setActive(True)
+                response = 'Success!'
+            response += ' You will receive material every day at midnight, Singapore time :)'
+
+        elif command == '/unsubscribe' or command == '/unsubscribe@LljBot':
+            if !user.isActive():
+                response = 'Looks like you already unsubscribed! ' +
+                           'Don\'t worry; you won\'t be receiving any more automatic updates. '
+            else:
+                user.setActive(False)
+                response = 'Success! You will no longer receive automatic updates. '
+            response += 'You can still get material manually by using the commands :)'
+
+        elif command == '/yesterday' or command == '/yesterday@LljBot':
+            response = getDevo(-1)
         elif command == '/tomorrow' or command == '/tomorrow@LljBot':
-            devo = getDevo(1)
+            response = getDevo(1)
         else:
-            devo = getDevo()
+            response = getDevo()
 
-        if devo ==  None:
-            devo = 'Sorry, I\'m having some difficulty accessing the LLJ website. Please try again later.'
+        if response ==  None:
+            response = 'Sorry, I\'m having some difficulty accessing the LLJ website. Please try again later.'
 
-        sendMessage(id, devo)
+        sendMessage(id, response)
 
 class SendPage(webapp2.RequestHandler):
     def get(self):
@@ -188,8 +221,8 @@ class SendPage(webapp2.RequestHandler):
         query.filter('active =', True)
         devo = getDevo()
         if devo:
-            for user in query.run(keys_only=True):
-                sendMessage(user.name(), devo)
+            for user_key in query.run(keys_only=True):
+                sendMessage(user_key.name(), devo)
         else:
             taskqueue.add(url='/retry')
 
@@ -198,10 +231,11 @@ class RetryPage(webapp2.RequestHandler):
         query = User.all()
         query.filter('active =', True)
         devo = getDevo()
-        if devo ==  None:
+        if devo:
+            for user_key in query.run(keys_only=True):
+                sendMessage(user_key.name(), devo)
+        else:
             self.abort(502)
-        for user in query.run(keys_only=True):
-            sendMessage(user.name(), devo)
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
