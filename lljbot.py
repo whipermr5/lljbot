@@ -172,33 +172,9 @@ class RetryPage(webapp2.RequestHandler):
         for user in query.run(keys_only=True):
             sendMessage(user.name(), devo)
 
-class ListPage(webapp2.RequestHandler):
-    def get(self):
-        query = User.all()
-        query.order('-created')
-        self.response.headers['Content-Type'] = 'text/html'
-        self.response.write('<table>')
-        self.response.write('<tr><td>#</td><td>uid</td><td>first</td><td>last</td><td>username</td><td>created</td><td>received</td><td>sent</td><td>active</td></tr>\n')
-        result = query.run()
-        i = query.count()
-        for user in result:
-            fname = user.first_name.encode('ascii', 'ignore')
-            lname = user.last_name
-            uname = user.username
-            if (uname == None):
-                uname = '-'
-            if (lname):
-                lname = lname.encode('ascii', 'ignore')
-            else:
-                lname = '-'
-            self.response.write('<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n'.format(i, user.key().name(), fname, lname, uname, user.created.strftime("%d/%m/%y %H:%M"), user.last_received.strftime("%d/%m/%y %H:%M"), user.last_sent.strftime("%d/%m/%y %H:%M"), user.active))
-            i -= 1
-        self.response.write('</table>')
-
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/' + token, LljPage),
     ('/send', SendPage),
     ('/retry', RetryPage),
-    ('/list', ListPage),
 ], debug=True)
