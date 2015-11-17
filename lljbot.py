@@ -188,7 +188,11 @@ class LljPage(webapp2.RequestHandler):
             last_name = None
         user = updateProfile(id, username, first_name, last_name)
 
-        command = data.get('message').get('text').strip()
+        command = data.get('message').get('text')
+        if command == None:
+            return
+
+        command = command.strip()
         if command == '/subscribe' or command == '/subscribe@LljBot':
             if user.isActive():
                 response = 'Looks like you are already subscribed!'
