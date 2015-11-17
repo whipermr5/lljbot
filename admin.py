@@ -1,22 +1,24 @@
 import webapp2
 from lljbot import User
+from datetime import timedelta
 
 class AdminPage(webapp2.RequestHandler):
     def get(self):
         def prep_str(str):
             if str == None:
                 return '-'
-            return str.encode('ascii', 'ignore')
+            return str.encode('utf-8', 'ignore')
 
         def prep_date(date):
-            return date.strftime("%d/%m/%y %H:%M")
+            date = date + timedelta(hours=8)
+            return date.strftime("%d/%m/%y %H:%M:%S")
 
         query = User.all()
         query.order('-created')
-        self.response.headers['Content-Type'] = 'text/html'
-        self.response.write('<table>')
-        self.response.write('<tr><td>#</td><td>uid</td><td>first</td><td>last</td><td>username</td>' +
-                            '<td>created</td><td>received</td><td>sent</td><td>active</td></tr>\n')
+        self.response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        self.response.write('<html>\n<head>\n<title>LLJ Bot Admin</title>\n</head>\n<body>\n<table>\n')
+        self.response.write('<tr><td>#</td><td>Chat ID</td><td>First name</td><td>Last name</td><td>Username</td>' +
+                            '<td>Created</td><td>Last received</td><td>Last sent</td><td>Active</td></tr>\n')
         result = query.run()
         i = query.count()
         for user in result:
@@ -32,7 +34,7 @@ class AdminPage(webapp2.RequestHandler):
                                 '<td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n')
                                 .format(i, uid, fname, lname, uname, ctime, rtime, stime, active))
             i -= 1
-        self.response.write('</table>')
+        self.response.write('</table>\n</body>\n</html>')
 
 app = webapp2.WSGIApplication([
     ('/admin', AdminPage),
