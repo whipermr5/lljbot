@@ -173,6 +173,17 @@ class MainPage(webapp2.RequestHandler):
         self.response.write('LLJBot backend running...\n')
 
 class LljPage(webapp2.RequestHandler):
+    command_list = '\n\n' + \
+                   '/today - get today\'s material\n' + \
+                   '/yesterday - get yesterday\'s material\n' + \
+                   '/tomorrow - get tomorrow\'s material'
+
+    command_unsub = '\n/unsubscribe - disable automatic updates'
+    command_sub = '\n/subscribe - re-enable automatic updates'
+
+    command_list_unsub = command_list + command_unsub
+    command_list_sub = command_list + command_sub
+
     def post(self):
         data = json.loads(self.request.body)
 
@@ -187,6 +198,12 @@ class LljPage(webapp2.RequestHandler):
             first_name = data.get('message').get('chat').get('title')
             last_name = None
         user = updateProfile(id, username, first_name, last_name)
+
+        if user.last_sent == None:
+            response = 'Hello, ' + first_name.strip() + '! Welcome! You are now subscribed. ' + \
+                       'To get started, enter one of the following commands:' + self.command_list_unsub
+            sendMessage(id, response)
+            return
 
         command = data.get('message').get('text')
         if command == None:
@@ -204,18 +221,25 @@ class LljPage(webapp2.RequestHandler):
         elif command == '/unsubscribe' or command == '/unsubscribe@LljBot':
             if not user.isActive():
                 response = 'Looks like you already unsubscribed! ' + \
-                           'Don\'t worry; you won\'t be receiving any more automatic updates. '
+                           'Don\'t worry; you won\'t be receiving any more automatic updates.'
             else:
                 user.setActive(False)
-                response = 'Success! You will no longer receive automatic updates. '
-            response += 'You can still get material manually by using the commands :)'
+                response = 'Success! You will no longer receive automatic updates.'
+            response += ' You can still get material manually by using the commands :)'
 
+        elif command == '/today' or command == '/today@LljBot':
+            response = getDevo()
         elif command == '/yesterday' or command == '/yesterday@LljBot':
             response = getDevo(-1)
         elif command == '/tomorrow' or command == '/tomorrow@LljBot':
             response = getDevo(1)
         else:
-            response = getDevo()
+            response = 'Sorry ' + first_name.strip() + ', I couldn\'t understand that. ' + \
+                       'Please enter one of the following commands:'
+            if user.isActive():
+                response += self.command_list_unsub
+            else:
+                response += self.command_list_sub
 
         if response ==  None:
             response = 'Sorry, I\'m having some difficulty accessing the LLJ website. Please try again later.'
