@@ -11,14 +11,21 @@ class AdminPage(webapp2.RequestHandler):
 
         def prep_date(date):
             date = date + timedelta(hours=8)
-            return date.strftime("%d/%m/%y %H:%M:%S")
+            return date.strftime("%d/%m %H:%M:%S")
+
+        def prep_active(active):
+            if active:
+                return prep_str(u'\U00002714')
+            else:
+                return ''
 
         query = User.all()
         query.order('-created')
         self.response.headers['Content-Type'] = 'text/html; charset=utf-8'
-        self.response.write('<html>\n<head>\n<title>LLJ Bot Admin</title>\n</head>\n<body>\n<table>\n')
-        self.response.write('<tr><td>#</td><td>Chat ID</td><td>First name</td><td>Last name</td><td>Username</td>' +
-                            '<td>Created</td><td>Last received</td><td>Last sent</td><td>Active</td></tr>\n')
+        self.response.write('<html>\n<head>\n<title>LLJ Bot Admin</title>\n</head>\n<body>\n' +
+                            '<table border="1" style="border: 1px solid black; border-collapse: collapse; padding: 10px;">\n')
+        self.response.write('<tr><th>#</th><th>Chat ID</th><th>First name</th><th>Last name</th><th>Username</th>' +
+                            '<th>Created</th><th>Last received</th><th>Last sent</th><th>Active</th></tr>\n')
         result = query.run()
         i = query.count()
         for user in result:
@@ -29,7 +36,7 @@ class AdminPage(webapp2.RequestHandler):
             ctime = prep_date(user.created)
             rtime = prep_date(user.last_received)
             stime = prep_date(user.last_sent)
-            active = user.active
+            active = prep_active(user.active)
             self.response.write(('<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>' +
                                 '<td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n')
                                 .format(i, uid, fname, lname, uname, ctime, rtime, stime, active))
