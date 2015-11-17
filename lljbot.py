@@ -8,8 +8,8 @@ from google.appengine.api import urlfetch, urlfetch_errors, taskqueue
 from google.appengine.ext import db
 from datetime import datetime, timedelta
 
-def getDevo():
-    date = (datetime.utcnow() + timedelta(hours=8)).strftime('%Y-%m-%d')
+def getDevo(delta=0):
+    date = (datetime.utcnow() + timedelta(hours=8, days=delta)).strftime('%Y-%m-%d')
     devo_url = 'http://www.duranno.com/livinglife/qt/reload_default.asp?OD=' + date
 
     try:
@@ -39,6 +39,16 @@ def getDevo():
             result += num + ' ' + text + '\n'
             str = str[end:]
         return result.strip()
+
+    def get_remote_date(content):
+        start = content.find('var videoNowDate = "') + 20
+        return content[start:start + 10]
+
+    if delta != 0 and get_remote_date(content) != date:
+        if (delta == -1):
+            return 'Sorry, the LLJ website is no longer hosting yesterday\'s material.'
+        else:
+            return 'Sorry, the LLJ website hasn\'t made tomorrow\'s material available yet.'
 
     title_start = content.find('<!-- today QT -->')
     title_end = content.find('<!-- bible words -->')
@@ -71,7 +81,9 @@ def getDevo():
     end = prayer.find('</div>', start)
     prayer = format(prayer[start:end])
 
-    devo = u'\U0001F4C5' + ' Today\'s QT - _' + date + '_\n\n*' + heading + '*\n' + verse + '\n\n' + \
+    daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
+
+    devo = u'\U0001F4C5' + ' ' + daynames[delta + 1] + ' QT - _' + date + '_\n\n*' + heading + '*\n' + verse + '\n\n' + \
            u'\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + passage + '\n\n' + \
            u'\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
            u'\U0001F64F' + ' *Prayer*\n\n' + prayer
@@ -135,6 +147,7 @@ class MainPage(webapp2.RequestHandler):
 class LljPage(webapp2.RequestHandler):
     def post(self):
         data = json.loads(self.request.body)
+
         if data.get('message').get('chat').get('type') == 'private':
             id = data.get('message').get('from').get('id')
             username = data.get('message').get('from').get('username')
@@ -146,9 +159,18 @@ class LljPage(webapp2.RequestHandler):
             first_name = data.get('message').get('chat').get('title')
             last_name = None
         update(id, username, first_name, last_name)
-        devo = getDevo()
+
+        command = data.get('message').get('text').strip()
+        if command == '/yesterday' or command == '/yesterday@LljBot':
+            devo = getDevo(-1)
+        elif command == '/tomorrow' or command == '/tomorrow@LljBot':
+            devo = getDevo(1)
+        else:
+            devo = getDevo()
+
         if devo ==  None:
             devo = 'Sorry, I\'m having some difficulty accessing the LLJ website. Please try again later.'
+
         sendMessage(id, devo)
 
 class SendPage(webapp2.RequestHandler):
