@@ -108,12 +108,15 @@ class User(db.Model):
 
     def setActive(self, active):
         self.active = active
+        self.put()
 
     def updateLastReceived(self):
         self.last_received = datetime.now()
+        self.put()
 
     def updateLastSent(self):
         self.last_sent = datetime.now()
+        self.put()
 
 def getUser(uid):
     key = db.Key.from_path('User', str(uid))
@@ -126,7 +129,7 @@ def updateProfile(uid, uname, fname, lname):
         existing_user.first_name = fname
         existing_user.last_name = lname
         existing_user.updateLastReceived()
-        existing_user.put()
+        #existing_user.put()
         return existing_user
     else:
         user = User(key_name=str(uid), username=uname, first_name=fname, last_name=lname)
@@ -195,8 +198,8 @@ class LljPage(webapp2.RequestHandler):
             response += ' You will receive material every day at midnight, Singapore time :)'
 
         elif command == '/unsubscribe' or command == '/unsubscribe@LljBot':
-            if !user.isActive():
-                response = 'Looks like you already unsubscribed! ' +
+            if not user.isActive():
+                response = 'Looks like you already unsubscribed! ' + \
                            'Don\'t worry; you won\'t be receiving any more automatic updates. '
             else:
                 user.setActive(False)
