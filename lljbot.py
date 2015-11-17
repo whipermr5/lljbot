@@ -118,6 +118,9 @@ def update(uid, uname, fname, lname):
         user.put()
 
 def sendMessage(uid, text):
+    if len(text) > 4096:
+        sendLongMessage(uid, text)
+        return
     key = db.Key.from_path('User', str(uid))
     existing_user = db.get(key)
     if existing_user:
@@ -138,6 +141,12 @@ def sendMessage(uid, text):
         else:
             time.sleep(1)
             urlfetch.fetch(url=url_send_message, payload=json.dumps(data), method=urlfetch.POST, headers=headers)
+
+def sendLongMessage(uid, text):
+    n = 4096
+    chunks = [text[i:i + n] for i in range(0, len(text), n)]
+    for chunk in chunks:
+        sendMessage(uid, chunk)
 
 class MainPage(webapp2.RequestHandler):
     def get(self):
