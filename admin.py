@@ -5,13 +5,11 @@ from datetime import timedelta
 class AdminPage(webapp2.RequestHandler):
     def get(self):
         def prep_str(str):
-            if str == None:
-                return '-'
             return str.encode('utf-8', 'ignore')
 
         def prep_date(date):
             date = date + timedelta(hours=8)
-            return date.strftime("%d/%m %H:%M:%S")
+            return date.strftime("%d %b %H:%M:%S")
 
         def prep_active(active):
             if active:
@@ -24,22 +22,24 @@ class AdminPage(webapp2.RequestHandler):
         self.response.headers['Content-Type'] = 'text/html; charset=utf-8'
         self.response.write('<html>\n<head>\n<title>LLJ Bot Admin</title>\n</head>\n<body>\n' +
                             '<table border="1" style="border: 1px solid black; border-collapse: collapse; padding: 10px;">\n')
-        self.response.write('<tr><th>#</th><th>Chat ID</th><th>First name</th><th>Last name</th><th>Username</th>' +
+        self.response.write('<tr><th>#</th><th>Chat ID</th><th>Name</th>' +
                             '<th>Created</th><th>Last received</th><th>Last sent</th><th>Active</th></tr>\n')
         result = query.run()
         i = query.count()
         for user in result:
             uid = prep_str(user.key().name())
-            fname = prep_str(user.first_name)
-            lname = prep_str(user.last_name)
-            uname = prep_str(user.username)
+            name = prep_str(user.first_name)
+            if user.last_name:
+                name += ' ' + prep_str(user.last_name)
+            if user.username:
+                name += ' @' + prep_str(user.username)
             ctime = prep_date(user.created)
             rtime = prep_date(user.last_received)
             stime = prep_date(user.last_sent)
             active = prep_active(user.active)
-            self.response.write(('<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>' +
+            self.response.write(('<tr><td>{}</td><td>{}</td><td>{}</td>' +
                                 '<td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n')
-                                .format(i, uid, fname, lname, uname, ctime, rtime, stime, active))
+                                .format(i, uid, name, ctime, rtime, stime, active))
             i -= 1
         self.response.write('</table>\n</body>\n</html>')
 
