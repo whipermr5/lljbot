@@ -161,8 +161,7 @@ def sendMessage(uid, text):
         logging.warning(result.content)
         if response.get('description') == '[Error]: Bot was kicked from a chat':
             if existing_user:
-                existing_user.active = False
-                existing_user.put()
+                existing_user.setActive(False)
         else:
             time.sleep(1)
             urlfetch.fetch(url=url_send_message, payload=json.dumps(data), method=urlfetch.POST, headers=headers)
@@ -209,8 +208,12 @@ class LljPage(webapp2.RequestHandler):
             last_name = None
         user = updateProfile(id, username, first_name, last_name)
         name = first_name.strip()
+        text = data.get('message').get('text')
 
-        if user.last_sent == None:
+        if user.last_sent == None or text == '/start':
+            if not user.isActive():
+                user.setActive(True)
+
             if user.isGroup():
                 response = 'Hello, friends in ' + name + '! Thanks for adding me in! This group chat is now subscribed.'
             else:
@@ -219,7 +222,6 @@ class LljPage(webapp2.RequestHandler):
             sendMessage(id, response)
             return
 
-        text = data.get('message').get('text')
         if text == None:
             return
 
@@ -239,7 +241,8 @@ class LljPage(webapp2.RequestHandler):
                            'Don\'t worry; you won\'t be receiving any more automatic updates.'
             else:
                 user.setActive(False)
-                response = 'Success! You will no longer receive automatic updates.'
+                response = 'You have successfully unsubscribed and will ' + \
+                           'no longer receive automatic updates. Use /subscribe if this was a mistake.'
             response += ' You can still get material manually by using the commands :)'
 
         elif command == '/today' or short_cmd.startswith(('/today@lljbot', '@lljbot/today')):
