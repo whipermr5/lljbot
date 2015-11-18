@@ -89,7 +89,7 @@ def getDevo(delta=0):
            u'\U0001F64F' + ' *Prayer*\n\n' + prayer
     return devo
 
-token = os.environ.get('TELEGRAM_BOT_TOKEN')
+from secrets import token
 url = 'https://api.telegram.org/bot' + token
 url_send_message = url + '/sendMessage'
 headers = {'Content-Type': 'application/json;charset=utf-8'}
