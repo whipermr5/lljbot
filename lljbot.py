@@ -4,6 +4,7 @@ import json
 import HTMLParser
 import os
 import time
+import textwrap
 from google.appengine.api import urlfetch, urlfetch_errors, taskqueue
 from google.appengine.ext import db
 from datetime import datetime, timedelta
@@ -36,9 +37,12 @@ def getDevo(delta=0):
             start = str.find('<div class="listCon">') + 21
             end = str.find('</div>', start)
             text = format(str[start:end])
-            result += num + ' ' + text + '\n'
+            result += num + ' ' + strip_markdown(text) + '\n'
             str = str[end:]
         return result.strip()
+
+    def strip_markdown(str):
+        return str.replace('*', ' ').replace('_', ' ')
 
     def get_remote_date(content):
         start = content.find('var videoNowDate = "') + 20
@@ -55,13 +59,13 @@ def getDevo(delta=0):
     title = format(content[title_start:title_end])
     start = title.find('<div class="today_m">') + 21
     end = title.find('</div>', start)
-    date = format(title[start:end])
+    date = strip_markdown(format(title[start:end]))
     start = title.find('<div class="title">') + 59
     end = title.find('</a>', start)
-    heading = format(title[start:end])
+    heading = strip_markdown(format(title[start:end]))
     start = title.find('<div class="sub_title">') + 23
     end = title.find('</div>', start)
-    verse = format(title[start:end])
+    verse = strip_markdown(format(title[start:end]))
 
     passage_start = title_end
     passage_end = content.find('<!-- Reflection-->')
@@ -72,18 +76,19 @@ def getDevo(delta=0):
     reflection = content[reflection_start:reflection_end]
     start = reflection.find('<div class="con">') + 17
     end = reflection.find('</div>', start)
-    reflection = format(reflection[start:end])
+    reflection = strip_markdown(format(reflection[start:end]))
 
     prayer_start = reflection_end
     prayer_end = content.find('<!-- Share SNS -->')
     prayer = content[prayer_start:prayer_end]
     start = prayer.find('<div class="con" style="padding-top:25px;">') + 43
     end = prayer.find('</div>', start)
-    prayer = format(prayer[start:end])
+    prayer = strip_markdown(format(prayer[start:end]))
 
     daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
 
-    devo = u'\U0001F4C5' + ' ' + daynames[delta + 1] + ' QT - _' + date + '_\n\n*' + heading + '*\n' + verse + '\n\n' + \
+    devo = u'\U0001F4C5' + ' ' + daynames[delta + 1] + ' QT - _' + date + '_\n\n' + \
+           '*' + heading + '*\n' + verse + '\n\n' + \
            u'\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + passage + '\n\n' + \
            u'\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
            u'\U0001F64F' + ' *Prayer*\n\n' + prayer
@@ -165,8 +170,7 @@ def sendMessage(uid, text):
         existing_user.updateLastSent()
 
 def sendLongMessage(uid, text):
-    n = 4096
-    chunks = [text[i:i + n] for i in range(0, len(text), n)]
+    chunks = textwrap.wrap(text, width=4096, replace_whitespace=False, drop_whitespace=False)
     for chunk in chunks:
         sendMessage(uid, chunk)
 
@@ -203,8 +207,11 @@ class LljPage(webapp2.RequestHandler):
         user = updateProfile(id, username, first_name, last_name)
 
         if user.last_sent == None:
-            response = 'Hello, ' + first_name.strip() + '! Welcome! You are now subscribed. ' + \
-                       'To get started, enter one of the following commands:' + self.command_list_unsub
+            if user.isGroup():
+                response = 'Hello, friends in' + first_name.strip() + '! Welcome! This group chat is now subscribed.'
+            else:
+                response = 'Hello, ' + first_name.strip() + '! Welcome! You are now subscribed.'
+            response += ' To get started, enter one of the following commands:' + self.command_list_unsub
             sendMessage(id, response)
             return
 
@@ -212,7 +219,7 @@ class LljPage(webapp2.RequestHandler):
         if command == None:
             return
 
-        command = command.strip()
+        command = command.lower().strip()
         if command == '/subscribe' or command == '/subscribe@LljBot':
             if user.isActive():
                 response = 'Looks like you are already subscribed!'
@@ -230,17 +237,22 @@ class LljPage(webapp2.RequestHandler):
                 response = 'Success! You will no longer receive automatic updates.'
             response += ' You can still get material manually by using the commands :)'
 
-        elif command == '/today' or command == '/today@LljBot':
+        elif command == '/today' or command == '/today@lljbot':
             response = getDevo()
-        elif command == '/yesterday' or command == '/yesterday@LljBot':
+        elif command == '/yesterday' or command == '/yesterday@lljbot':
             response = getDevo(-1)
-        elif command == '/tomorrow' or command == '/tomorrow@LljBot':
+        elif command == '/tomorrow' or command == '/tomorrow@lljbot':
             response = getDevo(1)
         else:
-            if user.isGroup():
+            if user.isGroup() and '@lljbot' not in command:
                 return
 
-            response = 'Sorry ' + first_name.strip() + ', I couldn\'t understand that. ' + \
+            if user.isGroup():
+                name = data.get('message').get('from').get('first_name')
+            else:
+                name = first_name
+
+            response = 'Sorry ' + name.strip() + ', I couldn\'t understand that. ' + \
                        'Please enter one of the following commands:'
             if user.isActive():
                 response += self.command_list_unsub
