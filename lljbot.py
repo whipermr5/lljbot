@@ -215,12 +215,12 @@ class LljPage(webapp2.RequestHandler):
             sendMessage(id, response)
             return
 
-        command = data.get('message').get('text')
-        if command == None:
+        text = data.get('message').get('text')
+        if text == None:
             return
 
-        command = command.lower().strip()
-        short_cmd = command.replace(' ', '')
+        command = text.lower().strip()
+        short_cmd = ''.join(command.split())
         if command == '/subscribe' or short_cmd.startswith(('/subscribe@lljbot', '@lljbot/subscribe')):
             if user.isActive():
                 response = 'Looks like you are already subscribed!'
