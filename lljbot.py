@@ -5,6 +5,7 @@ import HTMLParser
 import os
 import time
 import textwrap
+import logging
 from google.appengine.api import urlfetch, urlfetch_errors, taskqueue
 from google.appengine.ext import db
 from datetime import datetime, timedelta
@@ -157,6 +158,7 @@ def sendMessage(uid, text):
     result = urlfetch.fetch(url=url_send_message, payload=json.dumps(data), method=urlfetch.POST, headers=headers)
     response = json.loads(result.content)
     if response.get('ok') == False:
+        logging.warning(result.content)
         if response.get('description') == '[Error]: Bot was kicked from a chat':
             if existing_user:
                 existing_user.active = False
@@ -193,6 +195,7 @@ class LljPage(webapp2.RequestHandler):
 
     def post(self):
         data = json.loads(self.request.body)
+        logging.info(self.request.body)
 
         if data.get('message').get('chat').get('type') == 'private':
             id = data.get('message').get('from').get('id')
