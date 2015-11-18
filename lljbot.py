@@ -150,6 +150,8 @@ def sendMessage(uid, text):
         sendLongMessage(uid, text)
         return
 
+    existing_user = getUser(uid)
+
     data = {
         'chat_id': uid,
         'text': text,
@@ -166,7 +168,6 @@ def sendMessage(uid, text):
             time.sleep(1)
             urlfetch.fetch(url=url_send_message, payload=json.dumps(data), method=urlfetch.POST, headers=headers)
 
-    existing_user = getUser(uid)
     if existing_user:
         existing_user.updateLastSent()
 
