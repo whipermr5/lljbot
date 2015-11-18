@@ -208,12 +208,13 @@ class LljPage(webapp2.RequestHandler):
             first_name = data.get('message').get('chat').get('title')
             last_name = None
         user = updateProfile(id, username, first_name, last_name)
+        name = first_name.strip()
 
         if user.last_sent == None:
             if user.isGroup():
-                response = 'Hello, friends in ' + first_name.strip() + '! Welcome! This group chat is now subscribed.'
+                response = 'Hello, friends in ' + name + '! Thanks for adding me in! This group chat is now subscribed.'
             else:
-                response = 'Hello, ' + first_name.strip() + '! Welcome! You are now subscribed.'
+                response = 'Hello, ' + name + '! Welcome! You are now subscribed.'
             response += ' To get started, enter one of the following commands:' + self.command_list_unsub
             sendMessage(id, response)
             return
@@ -252,11 +253,9 @@ class LljPage(webapp2.RequestHandler):
                 return
 
             if user.isGroup():
-                name = data.get('message').get('from').get('first_name')
-            else:
-                name = first_name
+                name = data.get('message').get('from').get('first_name').strip()
 
-            response = 'Sorry ' + name.strip() + ', I couldn\'t understand that. ' + \
+            response = 'Sorry ' + name + ', I couldn\'t understand that. ' + \
                        'Please enter one of the following commands:'
             if user.isActive():
                 response += self.command_list_unsub
