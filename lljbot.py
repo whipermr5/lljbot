@@ -208,7 +208,7 @@ class LljPage(webapp2.RequestHandler):
 
         if user.last_sent == None:
             if user.isGroup():
-                response = 'Hello, friends in' + first_name.strip() + '! Welcome! This group chat is now subscribed.'
+                response = 'Hello, friends in ' + first_name.strip() + '! Welcome! This group chat is now subscribed.'
             else:
                 response = 'Hello, ' + first_name.strip() + '! Welcome! You are now subscribed.'
             response += ' To get started, enter one of the following commands:' + self.command_list_unsub
@@ -220,7 +220,8 @@ class LljPage(webapp2.RequestHandler):
             return
 
         command = command.lower().strip()
-        if command == '/subscribe' or command == '/subscribe@LljBot':
+        short_cmd = command.replace(' ', '')
+        if command == '/subscribe' or short_cmd.startswith(('/subscribe@lljbot', '@lljbot/subscribe')):
             if user.isActive():
                 response = 'Looks like you are already subscribed!'
             else:
@@ -228,7 +229,7 @@ class LljPage(webapp2.RequestHandler):
                 response = 'Success!'
             response += ' You will receive material every day at midnight, Singapore time :)'
 
-        elif command == '/unsubscribe' or command == '/unsubscribe@LljBot':
+        elif command == '/unsubscribe' or short_cmd.startswith(('/unsubscribe@lljbot', '@lljbot/unsubscribe')):
             if not user.isActive():
                 response = 'Looks like you already unsubscribed! ' + \
                            'Don\'t worry; you won\'t be receiving any more automatic updates.'
@@ -237,11 +238,11 @@ class LljPage(webapp2.RequestHandler):
                 response = 'Success! You will no longer receive automatic updates.'
             response += ' You can still get material manually by using the commands :)'
 
-        elif command == '/today' or command == '/today@lljbot':
+        elif command == '/today' or short_cmd.startswith(('/today@lljbot', '@lljbot/today')):
             response = getDevo()
-        elif command == '/yesterday' or command == '/yesterday@lljbot':
+        elif command == '/yesterday' or short_cmd.startswith(('/yesterday@lljbot', '@lljbot/yesterday')):
             response = getDevo(-1)
-        elif command == '/tomorrow' or command == '/tomorrow@lljbot':
+        elif command == '/tomorrow' or short_cmd.startswith(('/tomorrow@lljbot', '@lljbot/tomorrow')):
             response = getDevo(1)
         else:
             if user.isGroup() and '@lljbot' not in command:
