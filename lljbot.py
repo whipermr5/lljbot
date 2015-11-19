@@ -164,6 +164,7 @@ def sendMessage(uid, text, auto=False):
     try:
         result = urlfetch.fetch(url=url_send_message, payload=data, method=urlfetch.POST, headers=headers, deadline=3)
     except urlfetch_errors.Error as e:
+        logging.warning('Error sending message to uid ' + uid)
         logging.warning(e)
         taskqueue.add(url='/message', payload=data)
         return
@@ -172,11 +173,13 @@ def sendMessage(uid, text, auto=False):
     existing_user = getUser(uid)
 
     if response.get('ok') == True:
+        logging.info('Message sent to uid ' + uid)
         if existing_user:
             existing_user.updateLastSent()
             if auto:
                 existing_user.updateLastAuto()
     else:
+        logging.warning('Error sending message to uid ' + uid)
         logging.warning(result.content)
         if response.get('description') == '[Error]: Bot was kicked from a chat':
             if existing_user:
@@ -361,6 +364,7 @@ class MessagePage(webapp2.RequestHandler):
             if existing_user:
                 existing_user.updateLastSent()
         else:
+            logging.warning('Error sending message to uid ' + uid)
             logging.warning(result.content)
             if response.get('description') == '[Error]: Bot was kicked from a chat':
                 if existing_user:
