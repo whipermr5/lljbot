@@ -307,9 +307,10 @@ class SendPage(webapp2.RequestHandler):
     def get(self):
         query = User.all()
         query.filter('active =', True)
+        #query.filter('last_sent <', datetime(2015, 11, 20, 0, 0) - timedelta(hours=8))
         devo = getDevo()
         if devo:
-            for user_key in query.run(keys_only=True):
+            for user_key in query.run(keys_only=True, batch_size=1000):
                 sendMessage(user_key.name(), devo)
         else:
             taskqueue.add(url='/retry')
@@ -320,7 +321,7 @@ class RetryPage(webapp2.RequestHandler):
         query.filter('active =', True)
         devo = getDevo()
         if devo:
-            for user_key in query.run(keys_only=True):
+            for user_key in query.run(keys_only=True, batch_size=1000):
                 sendMessage(user_key.name(), devo)
         else:
             self.abort(502)
