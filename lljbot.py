@@ -107,6 +107,7 @@ class User(db.Model):
     created = db.DateTimeProperty(auto_now_add=True)
     last_received = db.DateTimeProperty(auto_now_add=True)
     last_sent = db.DateTimeProperty()
+    last_auto = db.DateTimeProperty()
     active = db.BooleanProperty(default=True)
 
     def isGroup(self):
@@ -127,6 +128,10 @@ class User(db.Model):
         self.last_sent = datetime.now()
         self.put()
 
+    def updateLastAuto(self):
+        self.last_auto = datetime.now()
+        self.put()
+
 def getUser(uid):
     key = db.Key.from_path('User', str(uid))
     return db.get(key)
@@ -145,9 +150,9 @@ def updateProfile(uid, uname, fname, lname):
         user.put()
         return user
 
-def sendMessage(uid, text):
+def sendMessage(uid, text, auto=False):
     if len(text) > 4096:
-        sendLongMessage(uid, text)
+        sendLongMessage(uid, text, auto)
         return
 
     data = json.dumps({
@@ -169,6 +174,8 @@ def sendMessage(uid, text):
     if response.get('ok') == True:
         if existing_user:
             existing_user.updateLastSent()
+            if auto:
+                existing_user.updateLastAuto()
     else:
         logging.warning(result.content)
         if response.get('description') == '[Error]: Bot was kicked from a chat':
@@ -177,10 +184,10 @@ def sendMessage(uid, text):
         else:
             taskqueue.add(url='/message', payload=data)
 
-def sendLongMessage(uid, text):
+def sendLongMessage(uid, text, auto):
     chunks = textwrap.wrap(text, width=4096, replace_whitespace=False, drop_whitespace=False)
     for chunk in chunks:
-        sendMessage(uid, chunk)
+        sendMessage(uid, chunk, auto)
 
 class MainPage(webapp2.RequestHandler):
     def get(self):
@@ -311,7 +318,7 @@ class SendPage(webapp2.RequestHandler):
         devo = getDevo()
         if devo:
             for user_key in query.run(keys_only=True, batch_size=1000):
-                sendMessage(user_key.name(), devo)
+                sendMessage(user_key.name(), devo, True)
         else:
             taskqueue.add(url='/retry')
 
@@ -322,7 +329,7 @@ class RetryPage(webapp2.RequestHandler):
         devo = getDevo()
         if devo:
             for user_key in query.run(keys_only=True, batch_size=1000):
-                sendMessage(user_key.name(), devo)
+                sendMessage(user_key.name(), devo, True)
         else:
             self.abort(502)
 

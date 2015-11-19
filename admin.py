@@ -8,6 +8,8 @@ class AdminPage(webapp2.RequestHandler):
             return str.encode('utf-8', 'ignore')
 
         def prep_date(date):
+            if date == None:
+                return ''
             date = date + timedelta(hours=8)
             return date.strftime("%d %b %H:%M:%S")
 
@@ -29,7 +31,7 @@ class AdminPage(webapp2.RequestHandler):
         self.response.write('<html>\n<head>\n<title>LLJ Bot Admin</title>\n</head>\n<body>\n' +
                             '<table border="1" style="border: 1px solid black; border-collapse: collapse; padding: 10px;">\n')
         self.response.write('<tr><th>#</th><th>Chat ID</th><th>Name</th>' +
-                            '<th>Created</th><th>Last received</th><th>Last sent</th><th>Active</th><th>Group</th></tr>\n')
+                            '<th>Created</th><th>Last received</th><th>Last sent</th><th>Last auto</th><th>Active</th><th>Group</th></tr>\n')
         result = query.run()
         i = query.count()
         for user in result:
@@ -42,11 +44,12 @@ class AdminPage(webapp2.RequestHandler):
             ctime = prep_date(user.created)
             rtime = prep_date(user.last_received)
             stime = prep_date(user.last_sent)
+            atime = prep_date(user.last_auto)
             active = prep_active(user.active)
             group = prep_group(uid)
             self.response.write(('<tr><td>{}</td><td>{}</td><td>{}</td>' +
-                                '<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n')
-                                .format(i, uid, name, ctime, rtime, stime, active, group))
+                                '<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n')
+                                .format(i, uid, name, ctime, rtime, stime, atime, active, group))
             i -= 1
         self.response.write('</table>\n</body>\n</html>')
 
