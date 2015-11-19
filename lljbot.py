@@ -150,26 +150,32 @@ def sendMessage(uid, text):
         sendLongMessage(uid, text)
         return
 
-    existing_user = getUser(uid)
-
-    data = {
+    data = json.dumps({
         'chat_id': uid,
         'text': text,
         'parse_mode': 'Markdown'
-    }
-    result = urlfetch.fetch(url=url_send_message, payload=json.dumps(data), method=urlfetch.POST, headers=headers)
+    })
+
+    try:
+        result = urlfetch.fetch(url=url_send_message, payload=data, method=urlfetch.POST, headers=headers, deadline=3)
+    except urlfetch_errors.Error as e:
+        logging.warning(e)
+        taskqueue.add(url='/message', payload=data)
+        return
+
     response = json.loads(result.content)
-    if response.get('ok') == False:
+    existing_user = getUser(uid)
+
+    if response.get('ok') == True:
+        if existing_user:
+            existing_user.updateLastSent()
+    else:
         logging.warning(result.content)
         if response.get('description') == '[Error]: Bot was kicked from a chat':
             if existing_user:
                 existing_user.setActive(False)
         else:
-            time.sleep(1)
-            urlfetch.fetch(url=url_send_message, payload=json.dumps(data), method=urlfetch.POST, headers=headers)
-
-    if existing_user:
-        existing_user.updateLastSent()
+            taskqueue.add(url='/message', payload=data)
 
 def sendLongMessage(uid, text):
     chunks = textwrap.wrap(text, width=4096, replace_whitespace=False, drop_whitespace=False)
@@ -192,6 +198,8 @@ class LljPage(webapp2.RequestHandler):
 
     command_list_unsub = command_list + command_unsub
     command_list_sub = command_list + command_sub
+
+    remote_error = 'Sorry, I\'m having some difficulty accessing the LLJ website. Please try again later.'
 
     def post(self):
         data = json.loads(self.request.body)
@@ -219,8 +227,15 @@ class LljPage(webapp2.RequestHandler):
                 response = 'Hello, friends in ' + name + '! Thanks for adding me in! This group chat is now subscribed.'
             else:
                 response = 'Hello, ' + name + '! Welcome! You are now subscribed.'
-            response += ' To get started, enter one of the following commands:' + self.command_list_unsub
+            response += ' You may enter one of the following commands:' + self.command_list_unsub
+            response += '\n\nIn the meantime, here\'s today\'s material to get you started!'
             sendMessage(id, response)
+
+            response = getDevo()
+            if response == None:
+                response = self.remote_error
+            sendMessage(id, response)
+
             return
 
         if text == None:
@@ -228,6 +243,7 @@ class LljPage(webapp2.RequestHandler):
 
         command = text.lower().strip()
         short_cmd = ''.join(command.split())
+
         if command == '/subscribe' or short_cmd.startswith(('/subscribe@lljbot', '@lljbot/subscribe')):
             if user.isActive():
                 response = 'Looks like you are already subscribed!'
@@ -248,10 +264,13 @@ class LljPage(webapp2.RequestHandler):
 
         elif command == '/today' or short_cmd.startswith(('/today@lljbot', '@lljbot/today')):
             response = getDevo()
+
         elif command == '/yesterday' or short_cmd.startswith(('/yesterday@lljbot', '@lljbot/yesterday')):
             response = getDevo(-1)
+
         elif command == '/tomorrow' or short_cmd.startswith(('/tomorrow@lljbot', '@lljbot/tomorrow')):
             response = getDevo(1)
+
         else:
             if user.isGroup() and '@lljbot' not in command:
                 return
@@ -267,7 +286,7 @@ class LljPage(webapp2.RequestHandler):
                 response += self.command_list_sub
 
         if response ==  None:
-            response = 'Sorry, I\'m having some difficulty accessing the LLJ website. Please try again later.'
+            response = self.remote_error
 
         sendMessage(id, response)
 
@@ -293,9 +312,33 @@ class RetryPage(webapp2.RequestHandler):
         else:
             self.abort(502)
 
+class MessagePage(webapp2.RequestHandler):
+    def post(self):
+        try:
+            result = urlfetch.fetch(url=url_send_message, payload=self.request.body, method=urlfetch.POST,
+                                    headers=headers, deadline=3)
+        except urlfetch_errors.Error as e:
+            self.abort(502)
+
+        response = json.loads(result.content)
+        uid = json.loads(self.request.body).get('chat_id')
+        existing_user = getUser(uid)
+
+        if response.get('ok') == True:
+            if existing_user:
+                existing_user.updateLastSent()
+        else:
+            logging.warning(result.content)
+            if response.get('description') == '[Error]: Bot was kicked from a chat':
+                if existing_user:
+                    existing_user.setActive(False)
+            else:
+                self.abort(502)
+
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/' + token, LljPage),
     ('/send', SendPage),
     ('/retry', RetryPage),
+    ('/message', MessagePage),
 ], debug=True)

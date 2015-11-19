@@ -12,6 +12,10 @@ handlers:
   script: lljbot.app
   login: admin
 
+- url: /message
+  script: lljbot.app
+  login: admin
+
 - url: /admin
   script: admin.app
   login: admin
