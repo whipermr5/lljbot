@@ -321,8 +321,11 @@ class SendPage(webapp2.RequestHandler):
 
         devo = getDevo()
         if devo:
-            for user_key in query.run(keys_only=True, batch_size=1000):
-                sendMessage(user_key.name(), devo, True)
+            try:
+                for user_key in query.run(keys_only=True, batch_size=1000):
+                    sendMessage(user_key.name(), devo, True)
+            except db.Error as e:
+                taskqueue.add(url='/retry')
         else:
             taskqueue.add(url='/retry')
 
