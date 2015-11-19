@@ -95,7 +95,7 @@ def getDevo(delta=0):
            u'\U0001F64F' + ' *Prayer*\n\n' + prayer
     return devo
 
-from secrets import token
+from secrets import token, admin_id
 url = 'https://api.telegram.org/bot' + token
 url_send_message = url + '/sendMessage'
 headers = {'Content-Type': 'application/json;charset=utf-8'}
@@ -220,6 +220,11 @@ class LljPage(webapp2.RequestHandler):
         text = data.get('message').get('text')
 
         if user.last_sent == None or text == '/start':
+            if user.last_sent == None:
+                new_user = True
+            else:
+                new_user = False
+
             if not user.isActive():
                 user.setActive(True)
 
@@ -235,6 +240,14 @@ class LljPage(webapp2.RequestHandler):
             if response == None:
                 response = self.remote_error
             sendMessage(id, response)
+
+            if new_user:
+                new_alert = 'New user: ' + name
+                if last_name:
+                    new_alert += ' ' + last_name.strip()
+                if username:
+                    new_alert += ' @' + username.strip()
+                sendMessage(admin_id, new_alert)
 
             return
 
