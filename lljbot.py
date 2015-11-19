@@ -107,7 +107,7 @@ class User(db.Model):
     created = db.DateTimeProperty(auto_now_add=True)
     last_received = db.DateTimeProperty(auto_now_add=True)
     last_sent = db.DateTimeProperty()
-    last_auto = db.DateTimeProperty()
+    last_auto = db.DateTimeProperty(default=datetime.fromtimestamp(0))
     active = db.BooleanProperty(default=True)
 
     def isGroup(self):
@@ -312,9 +312,13 @@ class LljPage(webapp2.RequestHandler):
 
 class SendPage(webapp2.RequestHandler):
     def get(self):
+        today = (datetime.utcnow() + timedelta(hours=8)).date()
+        today_time = datetime(today.year, today.month, today.day) - timedelta(hours=8)
+
         query = User.all()
         query.filter('active =', True)
-        #query.filter('last_sent <', datetime(2015, 11, 20, 0, 0) - timedelta(hours=8))
+        query.filter('last_auto <', today_time)
+
         devo = getDevo()
         if devo:
             for user_key in query.run(keys_only=True, batch_size=1000):
@@ -324,8 +328,13 @@ class SendPage(webapp2.RequestHandler):
 
 class RetryPage(webapp2.RequestHandler):
     def post(self):
+        today = (datetime.utcnow() + timedelta(hours=8)).date()
+        today_time = datetime(today.year, today.month, today.day) - timedelta(hours=8)
+
         query = User.all()
         query.filter('active =', True)
+        query.filter('last_auto <', today_time)
+
         devo = getDevo()
         if devo:
             for user_key in query.run(keys_only=True, batch_size=1000):

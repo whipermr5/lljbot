@@ -13,4 +13,15 @@ indexes:
 - kind: User
   properties:
   - name: active
+  - name: last_auto
+
+- kind: User
+  properties:
+  - name: active
+  - name: last_auto
+  - name: last_auto
+
+- kind: User
+  properties:
+  - name: active
   - name: last_sent
