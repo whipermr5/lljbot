@@ -298,9 +298,9 @@ class LljPage(webapp2.RequestHandler):
             if new_user:
                 new_alert = 'New user: ' + name
                 if last_name:
-                    new_alert += ' ' + last_name.strip()
+                    new_alert += ' ' + actual_last_name
                 if username:
-                    new_alert += ' @' + username.strip()
+                    new_alert += ' @' + actual_username
                 sendMessage(admin_id, new_alert)
 
             return
