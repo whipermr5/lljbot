@@ -166,7 +166,7 @@ def sendMessage(uid, text, auto=False):
     except urlfetch_errors.Error as e:
         logging.warning('Error sending message to uid ' + str(uid))
         logging.warning(e)
-        taskqueue.add(url='/message', payload=data)
+        taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
         return
 
     response = json.loads(result.content)
@@ -184,14 +184,13 @@ def sendMessage(uid, text, auto=False):
         if response.get('description') == '[Error]: Bot was kicked from a chat':
             if existing_user:
                 existing_user.setActive(False)
-        elif response.get('description').startswith('[Error]: Bad Request: can\'t parse message text'):
-            data = json.dumps({
-                'chat_id': uid,
-                'text': text
-            })
-            taskqueue.add(url='/message', payload=data)
         else:
-            taskqueue.add(url='/message', payload=data)
+            if response.get('description').startswith('[Error]: Bad Request: can\'t parse message text'):
+                data = json.dumps({
+                    'chat_id': uid,
+                    'text': text
+                })
+            taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
 
 def sendLongMessage(uid, text, auto):
     chunks = textwrap.wrap(text, width=4096, replace_whitespace=False, drop_whitespace=False)
@@ -356,20 +355,29 @@ class RetryPage(webapp2.RequestHandler):
 
 class MessagePage(webapp2.RequestHandler):
     def post(self):
-        logging.info(self.request.body)
+        params = json.loads(self.request.body)
+        auto = params.get('auto')
+        data = params.get('data')
+
+        logging.info('auto = ' + str(auto))
+        logging.info(data)
+
         try:
-            result = urlfetch.fetch(url=url_send_message, payload=self.request.body, method=urlfetch.POST,
+            result = urlfetch.fetch(url=url_send_message, payload=data, method=urlfetch.POST,
                                     headers=headers, deadline=3)
         except urlfetch_errors.Error as e:
             self.abort(502)
 
         response = json.loads(result.content)
-        uid = json.loads(self.request.body).get('chat_id')
+        uid = json.loads(data).get('chat_id')
         existing_user = getUser(uid)
 
         if response.get('ok') == True:
+            logging.info('Message ' + str(response.get('result').get('message_id')) + ' sent to uid ' + str(uid))
             if existing_user:
                 existing_user.updateLastSent()
+                if auto:
+                    existing_user.updateLastAuto()
         else:
             logging.warning('Error sending message to uid ' + str(uid))
             logging.warning(result.content)
