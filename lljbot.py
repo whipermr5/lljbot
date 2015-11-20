@@ -238,8 +238,8 @@ class LljPage(webapp2.RequestHandler):
             first_name = data.get('message').get('chat').get('title')
             last_name = None
         user = updateProfile(id, username, first_name, last_name)
-        name = first_name.strip()
-        text = data.get('message').get('text')
+        name = first_name.encode('utf-8', 'ignore').strip()
+        text = data.get('message').get('text').encode('utf-8', 'ignore')
         reply_to_message = data.get('message').get('reply_to_message')
 
         if reply_to_message:
