@@ -95,7 +95,7 @@ def getDevo(delta=0):
            u'\U0001F64F' + ' *Prayer*\n\n' + prayer
     return devo
 
-from secrets import token, admin_id
+from secrets import token, admin_id, bot_id
 url = 'https://api.telegram.org/bot' + token
 url_send_message = url + '/sendMessage'
 headers = {'Content-Type': 'application/json;charset=utf-8'}
@@ -150,16 +150,21 @@ def updateProfile(uid, uname, fname, lname):
         user.put()
         return user
 
-def sendMessage(uid, text, auto=False):
+def sendMessage(uid, text, auto=False, force=False):
     if len(text) > 4096:
         sendLongMessage(uid, text, auto)
         return
 
-    data = json.dumps({
+    build = {
         'chat_id': uid,
         'text': text,
         'parse_mode': 'Markdown'
-    })
+    }
+
+    if force:
+        build['reply_markup'] = {'force_reply': True}
+
+    data = json.dumps(build)
 
     try:
         result = urlfetch.fetch(url=url_send_message, payload=data, method=urlfetch.POST, headers=headers, deadline=3)
@@ -233,6 +238,13 @@ class LljPage(webapp2.RequestHandler):
         user = updateProfile(id, username, first_name, last_name)
         name = first_name.strip()
         text = data.get('message').get('text')
+        reply_to_message = data.get('message').get('reply_to_message')
+
+        if reply_to_message:
+            if str(reply_to_message.get('from').get('id')) == bot_id:
+                sendMessage(admin_id, 'Feedback from {} ({}):\n{}'.format(name, id, text))
+                sendMessage(id, 'Your message has been sent to my developer. Thanks for your feedback, {}!'.format(name))
+                return
 
         if user.last_sent == None or text == '/start':
             if user.last_sent == None:
@@ -298,6 +310,11 @@ class LljPage(webapp2.RequestHandler):
 
         elif command == '/tomorrow' or short_cmd.startswith(('/tomorrow@lljbot', '@lljbot/tomorrow')):
             response = getDevo(1)
+
+        elif command == '/feedback' or short_cmd.startswith(('/feedback@lljbot', '@lljbot/feedback')):
+            response = 'Please reply with your feedback. I will relay the message to my developer.'
+            sendMessage(id, response, force=True)
+            return
 
         else:
             if user.isGroup() and '@lljbot' not in command:
