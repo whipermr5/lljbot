@@ -192,10 +192,9 @@ def sendMessage(uid, text, auto=False, force=False, markdown=False):
                 existing_user.setActive(False)
         else:
             if response.get('description').startswith('[Error]: Bad Request: can\'t parse message text'):
-                data = json.dumps({
-                    'chat_id': uid,
-                    'text': text
-                })
+                if build.get('parse_mode'):
+                    del build['parse_mode']
+                data = json.dumps(build)
             taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
 
 def sendLongMessage(uid, text, auto, force=False, markdown=False):
