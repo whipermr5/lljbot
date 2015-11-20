@@ -221,6 +221,8 @@ class LljPage(webapp2.RequestHandler):
 
     remote_error = 'Sorry, I\'m having some difficulty accessing the LLJ website. Please try again later.'
 
+    feedback_string = 'Please reply with your feedback. I will relay the message to my developer.'
+
     def post(self):
         data = json.loads(self.request.body)
         logging.info(self.request.body)
@@ -241,7 +243,7 @@ class LljPage(webapp2.RequestHandler):
         reply_to_message = data.get('message').get('reply_to_message')
 
         if reply_to_message:
-            if str(reply_to_message.get('from').get('id')) == bot_id:
+            if str(reply_to_message.get('from').get('id')) == bot_id and reply_to_message.get('text') == self.feedback_string:
                 sendMessage(admin_id, 'Feedback from {} ({}):\n{}'.format(name, id, text))
                 sendMessage(id, 'Your message has been sent to my developer. Thanks for your feedback, {}!'.format(name))
                 return
@@ -312,7 +314,7 @@ class LljPage(webapp2.RequestHandler):
             response = getDevo(1)
 
         elif command == '/feedback' or short_cmd.startswith(('/feedback@lljbot', '@lljbot/feedback')):
-            response = 'Please reply with your feedback. I will relay the message to my developer.'
+            response = self.feedback_string
             sendMessage(id, response, force=True)
             return
 
