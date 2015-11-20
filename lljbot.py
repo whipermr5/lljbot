@@ -237,15 +237,37 @@ class LljPage(webapp2.RequestHandler):
             username = None
             first_name = data.get('message').get('chat').get('title')
             last_name = None
+
         user = updateProfile(id, username, first_name, last_name)
         name = first_name.encode('utf-8', 'ignore').strip()
+
+        actual_id = data.get('message').get('from').get('id')
+        actual_username = data.get('message').get('from').get('username')
+        if actual_username:
+            actual_username = actual_username.encode('utf-8', 'ignore').strip()
+        actual_name = data.get('message').get('from').get('first_name').encode('utf-8', 'ignore').strip()
+        actual_last_name = data.get('message').get('from').get('last_name')
+        if actual_last_name:
+            actual_last_name = actual_last_name.encode('utf-8', 'ignore').strip()
+
         text = data.get('message').get('text').encode('utf-8', 'ignore')
         reply_to_message = data.get('message').get('reply_to_message')
 
         if reply_to_message:
             if str(reply_to_message.get('from').get('id')) == bot_id and reply_to_message.get('text') == self.feedback_string:
-                sendMessage(admin_id, 'Feedback from {} ({}):\n{}'.format(name, id, text))
-                sendMessage(id, 'Your message has been sent to my developer. Thanks for your feedback, {}!'.format(name))
+                name_string = actual_name
+                if actual_last_name:
+                    name_string += ' ' + actual_last_name
+                if actual_username:
+                    name_string += ' @' + actual_username
+
+                if user.isGroup():
+                    message_to_dev = 'Feedback from {} ({}) via group {} ({}):\n{}'.format(name_string, actual_id, name, id, text)
+                else:
+                    message_to_dev = 'Feedback from {} ({}):\n{}'.format(name_string, actual_id, text)
+
+                sendMessage(admin_id, message_to_dev)
+                sendMessage(id, 'Your message has been sent to my developer. Thanks for your feedback, {}!'.format(actual_name))
                 return
 
         if user.last_sent == None or text == '/start':
@@ -323,7 +345,7 @@ class LljPage(webapp2.RequestHandler):
                 return
 
             if user.isGroup():
-                name = data.get('message').get('from').get('first_name').strip()
+                name = actual_name
 
             response = 'Sorry ' + name + ', I couldn\'t understand that. ' + \
                        'Please enter one of the following commands:'
