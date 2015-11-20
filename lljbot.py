@@ -150,19 +150,20 @@ def updateProfile(uid, uname, fname, lname):
         user.put()
         return user
 
-def sendMessage(uid, text, auto=False, force=False):
+def sendMessage(uid, text, auto=False, force=False, markdown=False):
     if len(text) > 4096:
-        sendLongMessage(uid, text, auto, force)
+        sendLongMessage(uid, text, auto, force, markdown)
         return
 
     build = {
         'chat_id': uid,
-        'text': text,
-        'parse_mode': 'Markdown'
+        'text': text
     }
 
     if force:
         build['reply_markup'] = {'force_reply': True}
+    if markdown:
+        build['parse_mode'] = 'Markdown'
 
     data = json.dumps(build)
 
@@ -197,10 +198,10 @@ def sendMessage(uid, text, auto=False, force=False):
                 })
             taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
 
-def sendLongMessage(uid, text, auto, force=False):
+def sendLongMessage(uid, text, auto, force=False, markdown=False):
     chunks = textwrap.wrap(text, width=4096, replace_whitespace=False, drop_whitespace=False)
     for chunk in chunks:
-        sendMessage(uid, chunk, auto, force)
+        sendMessage(uid, chunk, auto, force, markdown)
 
 class MainPage(webapp2.RequestHandler):
     def get(self):
