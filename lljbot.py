@@ -405,18 +405,19 @@ class MessagePage(webapp2.RequestHandler):
         params = json.loads(self.request.body)
         auto = params.get('auto')
         data = params.get('data')
+        uid = json.loads(data).get('chat_id')
 
         logging.info('auto = ' + str(auto))
         logging.info(data)
 
         try:
-            result = urlfetch.fetch(url=url_send_message, payload=data, method=urlfetch.POST,
-                                    headers=headers, deadline=3)
+            result = urlfetch.fetch(url=url_send_message, payload=data, method=urlfetch.POST, headers=headers, deadline=3)
         except urlfetch_errors.Error as e:
+            logging.warning('Error sending message to uid ' + str(uid))
+            logging.warning(e)
             self.abort(502)
 
         response = json.loads(result.content)
-        uid = json.loads(data).get('chat_id')
         existing_user = getUser(uid)
 
         if response.get('ok') == True:
