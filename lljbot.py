@@ -152,7 +152,7 @@ def updateProfile(uid, uname, fname, lname):
 
 def sendMessage(uid, text, auto=False, force=False):
     if len(text) > 4096:
-        sendLongMessage(uid, text, auto)
+        sendLongMessage(uid, text, auto, force)
         return
 
     build = {
@@ -197,10 +197,10 @@ def sendMessage(uid, text, auto=False, force=False):
                 })
             taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
 
-def sendLongMessage(uid, text, auto):
+def sendLongMessage(uid, text, auto, force=False):
     chunks = textwrap.wrap(text, width=4096, replace_whitespace=False, drop_whitespace=False)
     for chunk in chunks:
-        sendMessage(uid, chunk, auto)
+        sendMessage(uid, chunk, auto, force)
 
 class MainPage(webapp2.RequestHandler):
     def get(self):
