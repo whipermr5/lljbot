@@ -294,7 +294,7 @@ class LljPage(webapp2.RequestHandler):
             response = getDevo()
             if response == None:
                 response = self.remote_error
-            sendMessage(id, response)
+            sendMessage(id, response, markdown=True)
 
             if new_user:
                 new_alert = 'New user: ' + name
@@ -358,10 +358,13 @@ class LljPage(webapp2.RequestHandler):
             else:
                 response += self.command_list_sub
 
+            sendMessage(id, response)
+            return
+
         if response ==  None:
             response = self.remote_error
 
-        sendMessage(id, response)
+        sendMessage(id, response, markdown=True)
 
 class SendPage(webapp2.RequestHandler):
     def get(self):
@@ -376,7 +379,7 @@ class SendPage(webapp2.RequestHandler):
         if devo:
             try:
                 for user_key in query.run(keys_only=True, batch_size=1000):
-                    sendMessage(user_key.name(), devo, True)
+                    sendMessage(user_key.name(), devo, auto=True, markdown=True)
             except db.Error as e:
                 taskqueue.add(url='/retry')
         else:
@@ -394,7 +397,7 @@ class RetryPage(webapp2.RequestHandler):
         devo = getDevo()
         if devo:
             for user_key in query.run(keys_only=True, batch_size=1000):
-                sendMessage(user_key.name(), devo, True)
+                sendMessage(user_key.name(), devo, auto=True, markdown=True)
         else:
             self.abort(502)
 
