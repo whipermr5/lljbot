@@ -184,6 +184,12 @@ def sendMessage(uid, text, auto=False):
         if response.get('description') == '[Error]: Bot was kicked from a chat':
             if existing_user:
                 existing_user.setActive(False)
+        elif response.get('description').startswith('[Error]: Bad Request: can\'t parse message text'):
+            data = json.dumps({
+                'chat_id': uid,
+                'text': text
+            })
+            taskqueue.add(url='/message', payload=data)
         else:
             taskqueue.add(url='/message', payload=data)
 
@@ -350,6 +356,7 @@ class RetryPage(webapp2.RequestHandler):
 
 class MessagePage(webapp2.RequestHandler):
     def post(self):
+        logging.info(self.request.body)
         try:
             result = urlfetch.fetch(url=url_send_message, payload=self.request.body, method=urlfetch.POST,
                                     headers=headers, deadline=3)
