@@ -250,7 +250,10 @@ class LljPage(webapp2.RequestHandler):
         if actual_last_name:
             actual_last_name = actual_last_name.encode('utf-8', 'ignore').strip()
 
-        text = data.get('message').get('text').encode('utf-8', 'ignore')
+        text = data.get('message').get('text')
+        if text:
+            text = text.encode('utf-8', 'ignore')
+
         reply_to_message = data.get('message').get('reply_to_message')
 
         if reply_to_message:
