@@ -102,8 +102,8 @@ headers = {'Content-Type': 'application/json;charset=utf-8'}
 
 class User(db.Model):
     username = db.StringProperty()
-    first_name = db.StringProperty()
-    last_name = db.StringProperty()
+    first_name = db.StringProperty(multiline=True)
+    last_name = db.StringProperty(multiline=True)
     created = db.DateTimeProperty(auto_now_add=True)
     last_received = db.DateTimeProperty(auto_now_add=True)
     last_sent = db.DateTimeProperty()
