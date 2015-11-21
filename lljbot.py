@@ -98,9 +98,9 @@ TELEGRAM_URL = 'https://api.telegram.org/bot' + TOKEN
 TELEGRAM_URL_SEND = TELEGRAM_URL + '/sendMessage'
 JSON_HEADER = {'Content-Type': 'application/json;charset=utf-8'}
 
-def telegramPost(data):
+def telegramPost(data, deadline=3):
     return urlfetch.fetch(url=TELEGRAM_URL_SEND, payload=data, method=urlfetch.POST,
-                          headers=JSON_HEADER, deadline=3)
+                          headers=JSON_HEADER, deadline=deadline)
 
 class User(db.Model):
     username = db.StringProperty()
@@ -172,7 +172,10 @@ def sendMessage(uid, text, auto=False, force=False, markdown=False):
     data = json.dumps(build)
 
     try:
-        result = telegramPost(data)
+        if auto:
+            result = telegramPost(data, 1)
+        else:
+            result = telegramPost(data)
     except urlfetch_errors.Error as e:
         logging.warning('Error sending message to uid ' + str(uid) + ':\n' + str(e))
         taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
@@ -447,7 +450,7 @@ class MessagePage(webapp2.RequestHandler):
         uid = json.loads(data).get('chat_id')
 
         try:
-            result = telegramPost(data)
+            result = telegramPost(data, 4)
         except urlfetch_errors.Error as e:
             logging.warning('Error sending message to uid ' + str(uid) + ':\n' + str(e))
             self.abort(502)
