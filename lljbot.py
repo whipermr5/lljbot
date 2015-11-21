@@ -149,7 +149,9 @@ def updateProfile(uid, uname, fname, lname):
 
 def sendMessage(uid, text, auto=False, force=False, markdown=False):
     if len(text) > 4096:
-        sendLongMessage(uid, text, auto, force, markdown)
+        chunks = textwrap.wrap(text, width=4096, replace_whitespace=False, drop_whitespace=False)
+        for chunk in chunks:
+            sendMessage(uid, chunk, auto, force, markdown)
         return
 
     build = {
@@ -192,11 +194,6 @@ def sendMessage(uid, text, auto=False, force=False, markdown=False):
                     del build['parse_mode']
                 data = json.dumps(build)
             taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
-
-def sendLongMessage(uid, text, auto, force=False, markdown=False):
-    chunks = textwrap.wrap(text, width=4096, replace_whitespace=False, drop_whitespace=False)
-    for chunk in chunks:
-        sendMessage(uid, chunk, auto, force, markdown)
 
 class MainPage(webapp2.RequestHandler):
     def get(self):
