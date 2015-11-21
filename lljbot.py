@@ -1,11 +1,8 @@
 import webapp2
-import urllib
+import logging
 import json
 import HTMLParser
-import os
-import time
 import textwrap
-import logging
 from google.appengine.api import urlfetch, urlfetch_errors, taskqueue
 from google.appengine.ext import db
 from datetime import datetime, timedelta
@@ -23,68 +20,68 @@ def getDevo(delta=0):
 
     h = HTMLParser.HTMLParser()
 
-    def format(str):
-        str = str.replace('<br>', '\n')
-        return h.unescape(str).strip()
+    def prep_str(string):
+        string = string.replace('<br>', '\n')
+        return h.unescape(string).strip()
 
-    def format_passage(str):
+    def prep_passage(string):
         result = ''
-        first = str.find('<!-- bible verse and text -->')
-        str = str[first:]
-        while '<!-- bible verse and text -->' in str:
-            start = str.find('<div class="listTxt">') + 21
-            end = str.find('</div>', start)
-            num = '_' + format(str[start:end]) + '_'
-            start = str.find('<div class="listCon">') + 21
-            end = str.find('</div>', start)
-            text = format(str[start:end])
+        first = string.find('<!-- bible verse and text -->')
+        string = string[first:]
+        while '<!-- bible verse and text -->' in string:
+            start = string.find('<div class="listTxt">') + 21
+            end = string.find('</div>', start)
+            num = '_' + prep_str(string[start:end]) + '_'
+            start = string.find('<div class="listCon">') + 21
+            end = string.find('</div>', start)
+            text = prep_str(string[start:end])
             result += num + ' ' + strip_markdown(text) + '\n'
-            str = str[end:]
+            string = string[end:]
         return result.strip()
 
-    def strip_markdown(str):
-        return str.replace('*', ' ').replace('_', ' ')
+    def strip_markdown(string):
+        return string.replace('*', ' ').replace('_', ' ')
 
     def get_remote_date(content):
         start = content.find('var videoNowDate = "') + 20
         return content[start:start + 10]
 
     if delta != 0 and get_remote_date(content) != date:
-        if (delta == -1):
+        if delta == -1:
             return 'Sorry, the LLJ website is no longer hosting yesterday\'s material.'
         else:
             return 'Sorry, the LLJ website hasn\'t made tomorrow\'s material available yet.'
 
     title_start = content.find('<!-- today QT -->')
     title_end = content.find('<!-- bible words -->')
-    title = format(content[title_start:title_end])
+    title = prep_str(content[title_start:title_end])
     start = title.find('<div class="today_m">') + 21
     end = title.find('</div>', start)
-    date = strip_markdown(format(title[start:end]))
+    date = strip_markdown(prep_str(title[start:end]))
     start = title.find('<div class="title">') + 59
     end = title.find('</a>', start)
-    heading = strip_markdown(format(title[start:end]))
+    heading = strip_markdown(prep_str(title[start:end]))
     start = title.find('<div class="sub_title">') + 23
     end = title.find('</div>', start)
-    verse = strip_markdown(format(title[start:end]))
+    verse = strip_markdown(prep_str(title[start:end]))
 
     passage_start = title_end
     passage_end = content.find('<!-- Reflection-->')
-    passage = format_passage(content[passage_start:passage_end])
+    passage = prep_passage(content[passage_start:passage_end])
 
     reflection_start = passage_end
     reflection_end = content.find('<!--  Letter to God -->')
     reflection = content[reflection_start:reflection_end]
     start = reflection.find('<div class="con">') + 17
     end = reflection.find('</div>', start)
-    reflection = strip_markdown(format(reflection[start:end]))
+    reflection = strip_markdown(prep_str(reflection[start:end]))
 
     prayer_start = reflection_end
     prayer_end = content.find('<!-- Share SNS -->')
     prayer = content[prayer_start:prayer_end]
     start = prayer.find('<div class="con" style="padding-top:25px;">') + 43
     end = prayer.find('</div>', start)
-    prayer = strip_markdown(format(prayer[start:end]))
+    prayer = strip_markdown(prep_str(prayer[start:end]))
 
     daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
 
@@ -207,16 +204,16 @@ class MainPage(webapp2.RequestHandler):
         self.response.write('LLJBot backend running...\n')
 
 class LljPage(webapp2.RequestHandler):
-    command_list = '\n\n' + \
+    cmd_list = '\n\n' + \
                    '/today - get today\'s material\n' + \
                    '/yesterday - get yesterday\'s material\n' + \
                    '/tomorrow - get tomorrow\'s material'
 
-    command_unsub = '\n/unsubscribe - disable automatic updates'
-    command_sub = '\n/subscribe - re-enable automatic updates'
+    cmd_unsub = '\n/unsubscribe - disable automatic updates'
+    cmd_sub = '\n/subscribe - re-enable automatic updates'
 
-    command_list_unsub = command_list + command_unsub
-    command_list_sub = command_list + command_sub
+    cmd_list_unsub = cmd_list + cmd_unsub
+    cmd_list_sub = cmd_list + cmd_sub
 
     remote_error = 'Sorry, I\'m having some difficulty accessing the LLJ website. Please try again later.'
 
@@ -226,37 +223,39 @@ class LljPage(webapp2.RequestHandler):
         data = json.loads(self.request.body)
         logging.info(self.request.body)
 
-        if data.get('message').get('chat').get('type') == 'private':
-            id = data.get('message').get('from').get('id')
-            username = data.get('message').get('from').get('username')
-            first_name = data.get('message').get('from').get('first_name')
-            last_name = data.get('message').get('from').get('last_name')
+        msg = data.get('message')
+        msg_chat = msg.get('chat')
+        msg_from = msg.get('from')
+
+        if msg_chat.get('type') == 'private':
+            id = msg_from.get('id')
+            first_name = msg_from.get('first_name')
+            last_name = msg_from.get('last_name')
+            username = msg_from.get('username')
         else:
-            id = data.get('message').get('chat').get('id')
-            username = None
-            first_name = data.get('message').get('chat').get('title')
+            id = msg_chat.get('id')
+            first_name = msg_chat.get('title')
             last_name = None
+            username = None
 
         user = updateProfile(id, username, first_name, last_name)
-        name = first_name.encode('utf-8', 'ignore').strip()
 
-        actual_id = data.get('message').get('from').get('id')
-        actual_username = data.get('message').get('from').get('username')
+        actual_id = msg_from.get('id')
+        name = first_name.encode('utf-8', 'ignore').strip()
+        actual_username = msg_from.get('username')
         if actual_username:
             actual_username = actual_username.encode('utf-8', 'ignore').strip()
-        actual_name = data.get('message').get('from').get('first_name').encode('utf-8', 'ignore').strip()
-        actual_last_name = data.get('message').get('from').get('last_name')
+        actual_name = msg_from.get('first_name').encode('utf-8', 'ignore').strip()
+        actual_last_name = msg_from.get('last_name')
         if actual_last_name:
             actual_last_name = actual_last_name.encode('utf-8', 'ignore').strip()
-
-        text = data.get('message').get('text')
+        text = msg.get('text')
         if text:
             text = text.encode('utf-8', 'ignore')
 
-        reply_to_message = data.get('message').get('reply_to_message')
-
-        if reply_to_message:
-            if str(reply_to_message.get('from').get('id')) == bot_id and reply_to_message.get('text') == self.feedback_string:
+        msg_reply = msg.get('reply_to_message')
+        if msg_reply:
+            if str(msg_reply.get('from').get('id')) == bot_id and msg_reply.get('text') == self.feedback_string:
                 name_string = actual_name
                 if actual_last_name:
                     name_string += ' ' + actual_last_name
@@ -264,12 +263,15 @@ class LljPage(webapp2.RequestHandler):
                     name_string += ' @' + actual_username
 
                 if user.isGroup():
-                    message_to_dev = 'Feedback from {} ({}) via group {} ({}):\n{}'.format(name_string, actual_id, name, id, text)
+                    group_string = ' via group {} ({})'.format(name, id)
                 else:
-                    message_to_dev = 'Feedback from {} ({}):\n{}'.format(name_string, actual_id, text)
+                    group_string = ''
 
-                sendMessage(admin_id, message_to_dev)
-                sendMessage(id, 'Your message has been sent to my developer. Thanks for your feedback, {}!'.format(actual_name))
+                msg_to_dev = 'Feedback from {} ({}){}:\n{}'.format(name_string, actual_id, group_string, text)
+                msg_to_user = 'Your message has been sent to my developer. Thanks for your feedback, {}!'.format(actual_name)
+
+                sendMessage(admin_id, msg_to_dev)
+                sendMessage(id, msg_to_user)
                 return
 
         if user.last_sent == None or text == '/start':
@@ -285,7 +287,7 @@ class LljPage(webapp2.RequestHandler):
                 response = 'Hello, friends in ' + name + '! Thanks for adding me in! This group chat is now subscribed.'
             else:
                 response = 'Hello, ' + name + '! Welcome! You are now subscribed.'
-            response += ' You may enter one of the following commands:' + self.command_list_unsub
+            response += ' You may enter one of the following commands:' + self.cmd_list_unsub
             response += '\n\nIn the meantime, here\'s today\'s material to get you started!'
             sendMessage(id, response)
 
@@ -307,10 +309,10 @@ class LljPage(webapp2.RequestHandler):
         if text == None:
             return
 
-        command = text.lower().strip()
-        short_cmd = ''.join(command.split())
+        cmd = text.lower().strip()
+        short_cmd = ''.join(cmd.split())
 
-        if command == '/subscribe' or short_cmd.startswith(('/subscribe@lljbot', '@lljbot/subscribe')):
+        if cmd == '/subscribe' or short_cmd.startswith(('/subscribe@lljbot', '@lljbot/subscribe')):
             if user.isActive():
                 response = 'Looks like you are already subscribed!'
             else:
@@ -318,7 +320,10 @@ class LljPage(webapp2.RequestHandler):
                 response = 'Success!'
             response += ' You will receive material every day at midnight, Singapore time :)'
 
-        elif command == '/unsubscribe' or short_cmd.startswith(('/unsubscribe@lljbot', '@lljbot/unsubscribe')):
+            sendMessage(id, response)
+            return
+
+        elif cmd == '/unsubscribe' or short_cmd.startswith(('/unsubscribe@lljbot', '@lljbot/unsubscribe')):
             if not user.isActive():
                 response = 'Looks like you already unsubscribed! ' + \
                            'Don\'t worry; you won\'t be receiving any more automatic updates.'
@@ -328,41 +333,52 @@ class LljPage(webapp2.RequestHandler):
                            'no longer receive automatic updates. Use /subscribe if this was a mistake.'
             response += ' You can still get material manually by using the commands :)'
 
-        elif command == '/today' or short_cmd.startswith(('/today@lljbot', '@lljbot/today')):
+            sendMessage(id, response)
+            return
+
+        elif cmd == '/today' or short_cmd.startswith(('/today@lljbot', '@lljbot/today')):
             response = getDevo()
+            if response == None:
+                response = self.remote_error
 
-        elif command == '/yesterday' or short_cmd.startswith(('/yesterday@lljbot', '@lljbot/yesterday')):
+            sendMessage(id, response, markdown=True)
+            return
+
+        elif cmd == '/yesterday' or short_cmd.startswith(('/yesterday@lljbot', '@lljbot/yesterday')):
             response = getDevo(-1)
+            if response == None:
+                response = self.remote_error
 
-        elif command == '/tomorrow' or short_cmd.startswith(('/tomorrow@lljbot', '@lljbot/tomorrow')):
+            sendMessage(id, response, markdown=True)
+            return
+
+        elif cmd == '/tomorrow' or short_cmd.startswith(('/tomorrow@lljbot', '@lljbot/tomorrow')):
             response = getDevo(1)
+            if response == None:
+                response = self.remote_error
 
-        elif command == '/feedback' or short_cmd.startswith(('/feedback@lljbot', '@lljbot/feedback')):
+            sendMessage(id, response, markdown=True)
+            return
+
+        elif cmd == '/feedback' or short_cmd.startswith(('/feedback@lljbot', '@lljbot/feedback')):
             response = self.feedback_string
+
             sendMessage(id, response, force=True)
             return
 
         else:
-            if user.isGroup() and '@lljbot' not in command:
+            if user.isGroup() and '@lljbot' not in cmd:
                 return
 
-            if user.isGroup():
-                name = actual_name
-
-            response = 'Sorry ' + name + ', I couldn\'t understand that. ' + \
+            response = 'Sorry ' + actual_name + ', I couldn\'t understand that. ' + \
                        'Please enter one of the following commands:'
             if user.isActive():
-                response += self.command_list_unsub
+                response += self.cmd_list_unsub
             else:
-                response += self.command_list_sub
+                response += self.cmd_list_sub
 
             sendMessage(id, response)
             return
-
-        if response ==  None:
-            response = self.remote_error
-
-        sendMessage(id, response, markdown=True)
 
 class SendPage(webapp2.RequestHandler):
     def get(self):
