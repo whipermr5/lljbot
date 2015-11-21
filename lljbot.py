@@ -170,8 +170,7 @@ def sendMessage(uid, text, auto=False, force=False, markdown=False):
     try:
         result = urlfetch.fetch(url=url_send_message, payload=data, method=urlfetch.POST, headers=headers, deadline=3)
     except urlfetch_errors.Error as e:
-        logging.warning('Error sending message to uid ' + str(uid))
-        logging.warning(e)
+        logging.warning('Error sending message to uid ' + str(uid) + ':\n' + str(e))
         taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
         return
 
@@ -185,12 +184,12 @@ def sendMessage(uid, text, auto=False, force=False, markdown=False):
             if auto:
                 existing_user.updateLastAuto()
     else:
-        logging.warning('Error sending message to uid ' + str(uid))
-        logging.warning(result.content)
         if response.get('description') == '[Error]: Bot was kicked from a chat':
+            logging.info('Bot was kicked from uid ' + str(uid))
             if existing_user:
                 existing_user.setActive(False)
         else:
+            logging.warning('Error sending message to uid ' + str(uid) + ':\n' + result.content)
             if response.get('description').startswith('[Error]: Bad Request: can\'t parse message text'):
                 if build.get('parse_mode'):
                     del build['parse_mode']
@@ -402,19 +401,17 @@ class RetryPage(webapp2.RequestHandler):
 
 class MessagePage(webapp2.RequestHandler):
     def post(self):
+        logging.info(self.request.body)
+
         params = json.loads(self.request.body)
         auto = params.get('auto')
         data = params.get('data')
         uid = json.loads(data).get('chat_id')
 
-        logging.info('auto = ' + str(auto))
-        logging.info(data)
-
         try:
             result = urlfetch.fetch(url=url_send_message, payload=data, method=urlfetch.POST, headers=headers, deadline=3)
         except urlfetch_errors.Error as e:
-            logging.warning('Error sending message to uid ' + str(uid))
-            logging.warning(e)
+            logging.warning('Error sending message to uid ' + str(uid) + ':\n' + str(e))
             self.abort(502)
 
         response = json.loads(result.content)
@@ -427,12 +424,12 @@ class MessagePage(webapp2.RequestHandler):
                 if auto:
                     existing_user.updateLastAuto()
         else:
-            logging.warning('Error sending message to uid ' + str(uid))
-            logging.warning(result.content)
             if response.get('description') == '[Error]: Bot was kicked from a chat':
+                logging.info('Bot was kicked from uid ' + str(uid))
                 if existing_user:
                     existing_user.setActive(False)
             else:
+                logging.warning('Error sending message to uid ' + str(uid) + ':\n' + result.content)
                 self.abort(502)
 
 app = webapp2.WSGIApplication([
