@@ -14,6 +14,7 @@ def getDevo(delta=0):
     try:
         result = urlfetch.fetch(devo_url, deadline=10)
     except urlfetch_errors.Error as e:
+        logging.warning('Error fetching devo:\n' + str(e))
         return None
 
     content = result.content.decode('cp949', 'ignore')
@@ -233,17 +234,17 @@ class LljPage(webapp2.RequestHandler):
         msg_from = msg.get('from')
 
         if msg_chat.get('type') == 'private':
-            id = msg_from.get('id')
+            uid = msg_from.get('id')
             first_name = msg_from.get('first_name')
             last_name = msg_from.get('last_name')
             username = msg_from.get('username')
         else:
-            id = msg_chat.get('id')
+            uid = msg_chat.get('id')
             first_name = msg_chat.get('title')
             last_name = None
             username = None
 
-        user = updateProfile(id, username, first_name, last_name)
+        user = updateProfile(uid, username, first_name, last_name)
 
         actual_id = msg_from.get('id')
         name = first_name.encode('utf-8', 'ignore').strip()
@@ -268,7 +269,7 @@ class LljPage(webapp2.RequestHandler):
                 name_string += ' @' + actual_username
 
             if user.isGroup():
-                group_string = ' via group {} ({})'.format(name, id)
+                group_string = ' via group {} ({})'.format(name, uid)
             else:
                 group_string = ''
 
@@ -276,7 +277,7 @@ class LljPage(webapp2.RequestHandler):
             msg_user = self.feedback_success.format(actual_name)
 
             sendMessage(admin_id, msg_dev)
-            sendMessage(id, msg_user)
+            sendMessage(uid, msg_user)
             return
 
         if user.last_sent == None or text == '/start':
@@ -295,12 +296,12 @@ class LljPage(webapp2.RequestHandler):
                 response = 'Hello, ' + name + '! Welcome! You are now subscribed.'
             response += ' You may enter one of the following commands:' + self.cmd_list_unsub
             response += '\n\nIn the meantime, here\'s today\'s material to get you started!'
-            sendMessage(id, response)
+            sendMessage(uid, response)
 
             response = getDevo()
             if response == None:
                 response = self.remote_error
-            sendMessage(id, response, markdown=True)
+            sendMessage(uid, response, markdown=True)
 
             if new_user:
                 new_alert = 'New user: ' + name
@@ -330,7 +331,7 @@ class LljPage(webapp2.RequestHandler):
                 response = 'Success!'
             response += ' You will receive material every day at midnight, Singapore time :)'
 
-            sendMessage(id, response)
+            sendMessage(uid, response)
             return
 
         elif isCommand('unsubscribe'):
@@ -343,7 +344,7 @@ class LljPage(webapp2.RequestHandler):
                            'receive automatic updates. Use /subscribe if this was a mistake.'
             response += ' You can still get material manually by using the commands :)'
 
-            sendMessage(id, response)
+            sendMessage(uid, response)
             return
 
         elif isCommand('today'):
@@ -351,7 +352,7 @@ class LljPage(webapp2.RequestHandler):
             if response == None:
                 response = self.remote_error
 
-            sendMessage(id, response, markdown=True)
+            sendMessage(uid, response, markdown=True)
             return
 
         elif isCommand('yesterday'):
@@ -359,7 +360,7 @@ class LljPage(webapp2.RequestHandler):
             if response == None:
                 response = self.remote_error
 
-            sendMessage(id, response, markdown=True)
+            sendMessage(uid, response, markdown=True)
             return
 
         elif isCommand('tomorrow'):
@@ -367,13 +368,13 @@ class LljPage(webapp2.RequestHandler):
             if response == None:
                 response = self.remote_error
 
-            sendMessage(id, response, markdown=True)
+            sendMessage(uid, response, markdown=True)
             return
 
         elif isCommand('feedback'):
             response = self.feedback_string
 
-            sendMessage(id, response, force=True)
+            sendMessage(uid, response, force=True)
             return
 
         else:
@@ -387,7 +388,7 @@ class LljPage(webapp2.RequestHandler):
             else:
                 response += self.cmd_list_sub
 
-            sendMessage(id, response)
+            sendMessage(uid, response)
             return
 
 class SendPage(webapp2.RequestHandler):
@@ -405,6 +406,7 @@ class SendPage(webapp2.RequestHandler):
                 for user_key in query.run(keys_only=True, batch_size=1000):
                     sendMessage(user_key.name(), devo, auto=True, markdown=True)
             except db.Error as e:
+                logging.warning('Error reading from datastore:\n' + str(e))
                 taskqueue.add(url='/retry')
         else:
             taskqueue.add(url='/retry')
