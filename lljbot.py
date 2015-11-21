@@ -93,9 +93,13 @@ def getDevo(delta=0):
     return devo
 
 from secrets import token, admin_id, bot_id
-url = 'https://api.telegram.org/bot' + token
-url_send_message = url + '/sendMessage'
-headers = {'Content-Type': 'application/json;charset=utf-8'}
+telegram_url = 'https://api.telegram.org/bot' + token
+telegram_url_send = telegram_url + '/sendMessage'
+json_header = {'Content-Type': 'application/json;charset=utf-8'}
+
+def telegramPost(data):
+    return urlfetch.fetch(url=telegram_url_send, payload=data, method=urlfetch.POST,
+                          headers=json_header, deadline=3)
 
 class User(db.Model):
     username = db.StringProperty()
@@ -167,7 +171,7 @@ def sendMessage(uid, text, auto=False, force=False, markdown=False):
     data = json.dumps(build)
 
     try:
-        result = urlfetch.fetch(url=url_send_message, payload=data, method=urlfetch.POST, headers=headers, deadline=3)
+        result = telegramPost(data)
     except urlfetch_errors.Error as e:
         logging.warning('Error sending message to uid ' + str(uid) + ':\n' + str(e))
         taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
@@ -177,19 +181,21 @@ def sendMessage(uid, text, auto=False, force=False, markdown=False):
     existing_user = getUser(uid)
 
     if response.get('ok') == True:
-        logging.info('Message ' + str(response.get('result').get('message_id')) + ' sent to uid ' + str(uid))
+        msg_id = response.get('result').get('message_id')
+        logging.info('Message ' + str(msg_id)  + ' sent to uid ' + str(uid))
         if existing_user:
             existing_user.updateLastSent()
             if auto:
                 existing_user.updateLastAuto()
     else:
-        if response.get('description') == '[Error]: Bot was kicked from a chat':
+        error_description = response.get('description')
+        if error_description == '[Error]: Bot was kicked from a chat':
             logging.info('Bot was kicked from uid ' + str(uid))
             if existing_user:
                 existing_user.setActive(False)
         else:
             logging.warning('Error sending message to uid ' + str(uid) + ':\n' + result.content)
-            if response.get('description').startswith('[Error]: Bad Request: can\'t parse message text'):
+            if error_description.startswith('[Error]: Bad Request: can\'t parse message text'):
                 if build.get('parse_mode'):
                     del build['parse_mode']
                 data = json.dumps(build)
@@ -205,16 +211,18 @@ class LljPage(webapp2.RequestHandler):
                    '/today - get today\'s material\n' + \
                    '/yesterday - get yesterday\'s material\n' + \
                    '/tomorrow - get tomorrow\'s material'
-
     cmd_unsub = '\n/unsubscribe - disable automatic updates'
     cmd_sub = '\n/subscribe - re-enable automatic updates'
-
     cmd_list_unsub = cmd_list + cmd_unsub
     cmd_list_sub = cmd_list + cmd_sub
 
-    remote_error = 'Sorry, I\'m having some difficulty accessing the LLJ website. Please try again later.'
+    remote_error = 'Sorry, I\'m having some difficulty accessing the LLJ website. ' + \
+                   'Please try again later.'
 
-    feedback_string = 'Please reply with your feedback. I will relay the message to my developer.'
+    feedback_string = 'Please reply with your feedback. ' + \
+                      'I will relay the message to my developer.'
+    feedback_alert = 'Feedback from {} ({}){}:\n{}'
+    feedback_success = 'Your message has been sent to my developer. Thanks for your feedback, {}!'
 
     def post(self):
         data = json.loads(self.request.body)
@@ -251,25 +259,25 @@ class LljPage(webapp2.RequestHandler):
             text = text.encode('utf-8', 'ignore')
 
         msg_reply = msg.get('reply_to_message')
-        if msg_reply:
-            if str(msg_reply.get('from').get('id')) == bot_id and msg_reply.get('text') == self.feedback_string:
-                name_string = actual_name
-                if actual_last_name:
-                    name_string += ' ' + actual_last_name
-                if actual_username:
-                    name_string += ' @' + actual_username
+        if msg_reply and str(msg_reply.get('from').get('id')) == bot_id and \
+                         msg_reply.get('text') == self.feedback_string:
+            name_string = actual_name
+            if actual_last_name:
+                name_string += ' ' + actual_last_name
+            if actual_username:
+                name_string += ' @' + actual_username
 
-                if user.isGroup():
-                    group_string = ' via group {} ({})'.format(name, id)
-                else:
-                    group_string = ''
+            if user.isGroup():
+                group_string = ' via group {} ({})'.format(name, id)
+            else:
+                group_string = ''
 
-                msg_to_dev = 'Feedback from {} ({}){}:\n{}'.format(name_string, actual_id, group_string, text)
-                msg_to_user = 'Your message has been sent to my developer. Thanks for your feedback, {}!'.format(actual_name)
+            msg_dev = self.feedback_alert.format(name_string, actual_id, group_string, text)
+            msg_user = self.feedback_success.format(actual_name)
 
-                sendMessage(admin_id, msg_to_dev)
-                sendMessage(id, msg_to_user)
-                return
+            sendMessage(admin_id, msg_dev)
+            sendMessage(id, msg_user)
+            return
 
         if user.last_sent == None or text == '/start':
             if user.last_sent == None:
@@ -281,7 +289,8 @@ class LljPage(webapp2.RequestHandler):
                 user.setActive(True)
 
             if user.isGroup():
-                response = 'Hello, friends in ' + name + '! Thanks for adding me in! This group chat is now subscribed.'
+                response = 'Hello, friends in ' + name + \
+                           '! Thanks for adding me in! This group chat is now subscribed.'
             else:
                 response = 'Hello, ' + name + '! Welcome! You are now subscribed.'
             response += ' You may enter one of the following commands:' + self.cmd_list_unsub
@@ -309,7 +318,11 @@ class LljPage(webapp2.RequestHandler):
         cmd = text.lower().strip()
         short_cmd = ''.join(cmd.split())
 
-        if cmd == '/subscribe' or short_cmd.startswith(('/subscribe@lljbot', '@lljbot/subscribe')):
+        def isCommand(word):
+            flexi_pattern = ('/{}@lljbot'.format(word), '@lljbot/{}'.format(word))
+            return cmd == '/' + word or short_cmd.startswith(flexi_pattern)
+
+        if isCommand('subscribe'):
             if user.isActive():
                 response = 'Looks like you are already subscribed!'
             else:
@@ -320,20 +333,20 @@ class LljPage(webapp2.RequestHandler):
             sendMessage(id, response)
             return
 
-        elif cmd == '/unsubscribe' or short_cmd.startswith(('/unsubscribe@lljbot', '@lljbot/unsubscribe')):
+        elif isCommand('unsubscribe'):
             if not user.isActive():
                 response = 'Looks like you already unsubscribed! ' + \
                            'Don\'t worry; you won\'t be receiving any more automatic updates.'
             else:
                 user.setActive(False)
-                response = 'You have successfully unsubscribed and will ' + \
-                           'no longer receive automatic updates. Use /subscribe if this was a mistake.'
+                response = 'You have successfully unsubscribed and will no longer ' + \
+                           'receive automatic updates. Use /subscribe if this was a mistake.'
             response += ' You can still get material manually by using the commands :)'
 
             sendMessage(id, response)
             return
 
-        elif cmd == '/today' or short_cmd.startswith(('/today@lljbot', '@lljbot/today')):
+        elif isCommand('today'):
             response = getDevo()
             if response == None:
                 response = self.remote_error
@@ -341,7 +354,7 @@ class LljPage(webapp2.RequestHandler):
             sendMessage(id, response, markdown=True)
             return
 
-        elif cmd == '/yesterday' or short_cmd.startswith(('/yesterday@lljbot', '@lljbot/yesterday')):
+        elif isCommand('yesterday'):
             response = getDevo(-1)
             if response == None:
                 response = self.remote_error
@@ -349,7 +362,7 @@ class LljPage(webapp2.RequestHandler):
             sendMessage(id, response, markdown=True)
             return
 
-        elif cmd == '/tomorrow' or short_cmd.startswith(('/tomorrow@lljbot', '@lljbot/tomorrow')):
+        elif isCommand('tomorrow'):
             response = getDevo(1)
             if response == None:
                 response = self.remote_error
@@ -357,7 +370,7 @@ class LljPage(webapp2.RequestHandler):
             sendMessage(id, response, markdown=True)
             return
 
-        elif cmd == '/feedback' or short_cmd.startswith(('/feedback@lljbot', '@lljbot/feedback')):
+        elif isCommand('feedback'):
             response = self.feedback_string
 
             sendMessage(id, response, force=True)
@@ -422,7 +435,7 @@ class MessagePage(webapp2.RequestHandler):
         uid = json.loads(data).get('chat_id')
 
         try:
-            result = urlfetch.fetch(url=url_send_message, payload=data, method=urlfetch.POST, headers=headers, deadline=3)
+            result = telegramPost(data)
         except urlfetch_errors.Error as e:
             logging.warning('Error sending message to uid ' + str(uid) + ':\n' + str(e))
             self.abort(502)
@@ -431,7 +444,8 @@ class MessagePage(webapp2.RequestHandler):
         existing_user = getUser(uid)
 
         if response.get('ok') == True:
-            logging.info('Message ' + str(response.get('result').get('message_id')) + ' sent to uid ' + str(uid))
+            msg_id = response.get('result').get('message_id')
+            logging.info('Message ' + str(msg_id) + ' sent to uid ' + str(uid))
             if existing_user:
                 existing_user.updateLastSent()
                 if auto:
