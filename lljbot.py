@@ -93,14 +93,14 @@ def getDevo(delta=0):
            u'\U0001F64F' + ' *Prayer*\n\n' + prayer
     return devo
 
-from secrets import token, admin_id, bot_id
-telegram_url = 'https://api.telegram.org/bot' + token
-telegram_url_send = telegram_url + '/sendMessage'
-json_header = {'Content-Type': 'application/json;charset=utf-8'}
+from secrets import TOKEN, ADMIN_ID, BOT_ID
+TELEGRAM_URL = 'https://api.telegram.org/bot' + TOKEN
+TELEGRAM_URL_SEND = TELEGRAM_URL + '/sendMessage'
+JSON_HEADER = {'Content-Type': 'application/json;charset=utf-8'}
 
 def telegramPost(data):
-    return urlfetch.fetch(url=telegram_url_send, payload=data, method=urlfetch.POST,
-                          headers=json_header, deadline=3)
+    return urlfetch.fetch(url=TELEGRAM_URL_SEND, payload=data, method=urlfetch.POST,
+                          headers=JSON_HEADER, deadline=3)
 
 class User(db.Model):
     username = db.StringProperty()
@@ -208,22 +208,22 @@ class MainPage(webapp2.RequestHandler):
         self.response.write('LLJBot backend running...\n')
 
 class LljPage(webapp2.RequestHandler):
-    cmd_list = '\n\n' + \
+    CMD_LIST = '\n\n' + \
                    '/today - get today\'s material\n' + \
                    '/yesterday - get yesterday\'s material\n' + \
                    '/tomorrow - get tomorrow\'s material'
-    cmd_unsub = '\n/unsubscribe - disable automatic updates'
-    cmd_sub = '\n/subscribe - re-enable automatic updates'
-    cmd_list_unsub = cmd_list + cmd_unsub
-    cmd_list_sub = cmd_list + cmd_sub
+    CMD_UNSUB = '\n/unsubscribe - disable automatic updates'
+    CMD_SUB = '\n/subscribe - re-enable automatic updates'
+    CMD_LIST_UNSUB = CMD_LIST + CMD_UNSUB
+    CMD_LIST_SUB = CMD_LIST + CMD_SUB
 
-    remote_error = 'Sorry, I\'m having some difficulty accessing the LLJ website. ' + \
+    REMOTE_ERROR = 'Sorry, I\'m having some difficulty accessing the LLJ website. ' + \
                    'Please try again later.'
 
-    feedback_string = 'Please reply with your feedback. ' + \
+    FEEDBACK_STRING = 'Please reply with your feedback. ' + \
                       'I will relay the message to my developer.'
-    feedback_alert = 'Feedback from {} ({}){}:\n{}'
-    feedback_success = 'Your message has been sent to my developer. Thanks for your feedback, {}!'
+    FEEDBACK_ALERT = 'Feedback from {} ({}){}:\n{}'
+    FEEDBACK_SUCCESS = 'Your message has been sent to my developer. Thanks for your feedback, {}!'
 
     def post(self):
         data = json.loads(self.request.body)
@@ -260,8 +260,8 @@ class LljPage(webapp2.RequestHandler):
             text = text.encode('utf-8', 'ignore')
 
         msg_reply = msg.get('reply_to_message')
-        if msg_reply and str(msg_reply.get('from').get('id')) == bot_id and \
-                         msg_reply.get('text') == self.feedback_string:
+        if msg_reply and str(msg_reply.get('from').get('id')) == BOT_ID and \
+                         msg_reply.get('text') == self.FEEDBACK_STRING:
             name_string = actual_name
             if actual_last_name:
                 name_string += ' ' + actual_last_name
@@ -273,10 +273,10 @@ class LljPage(webapp2.RequestHandler):
             else:
                 group_string = ''
 
-            msg_dev = self.feedback_alert.format(name_string, actual_id, group_string, text)
-            msg_user = self.feedback_success.format(actual_name)
+            msg_dev = self.FEEDBACK_ALERT.format(name_string, actual_id, group_string, text)
+            msg_user = self.FEEDBACK_SUCCESS.format(actual_name)
 
-            sendMessage(admin_id, msg_dev)
+            sendMessage(ADMIN_ID, msg_dev)
             sendMessage(uid, msg_user)
             return
 
@@ -294,13 +294,13 @@ class LljPage(webapp2.RequestHandler):
                            '! Thanks for adding me in! This group chat is now subscribed.'
             else:
                 response = 'Hello, ' + name + '! Welcome! You are now subscribed.'
-            response += ' You may enter one of the following commands:' + self.cmd_list_unsub
+            response += ' You may enter one of the following commands:' + self.CMD_LIST_UNSUB
             response += '\n\nIn the meantime, here\'s today\'s material to get you started!'
             sendMessage(uid, response)
 
             response = getDevo()
             if response == None:
-                response = self.remote_error
+                response = self.REMOTE_ERROR
             sendMessage(uid, response, markdown=True)
 
             if new_user:
@@ -309,7 +309,7 @@ class LljPage(webapp2.RequestHandler):
                     new_alert += ' ' + actual_last_name
                 if username:
                     new_alert += ' @' + actual_username
-                sendMessage(admin_id, new_alert)
+                sendMessage(ADMIN_ID, new_alert)
 
             return
 
@@ -350,7 +350,7 @@ class LljPage(webapp2.RequestHandler):
         elif isCommand('today'):
             response = getDevo()
             if response == None:
-                response = self.remote_error
+                response = self.REMOTE_ERROR
 
             sendMessage(uid, response, markdown=True)
             return
@@ -358,7 +358,7 @@ class LljPage(webapp2.RequestHandler):
         elif isCommand('yesterday'):
             response = getDevo(-1)
             if response == None:
-                response = self.remote_error
+                response = self.REMOTE_ERROR
 
             sendMessage(uid, response, markdown=True)
             return
@@ -366,13 +366,13 @@ class LljPage(webapp2.RequestHandler):
         elif isCommand('tomorrow'):
             response = getDevo(1)
             if response == None:
-                response = self.remote_error
+                response = self.REMOTE_ERROR
 
             sendMessage(uid, response, markdown=True)
             return
 
         elif isCommand('feedback'):
-            response = self.feedback_string
+            response = self.FEEDBACK_STRING
 
             sendMessage(uid, response, force=True)
             return
@@ -384,9 +384,9 @@ class LljPage(webapp2.RequestHandler):
             response = 'Sorry ' + actual_name + ', I couldn\'t understand that. ' + \
                        'Please enter one of the following commands:'
             if user.isActive():
-                response += self.cmd_list_unsub
+                response += self.CMD_LIST_UNSUB
             else:
-                response += self.cmd_list_sub
+                response += self.CMD_LIST_SUB
 
             sendMessage(uid, response)
             return
@@ -463,7 +463,7 @@ class MessagePage(webapp2.RequestHandler):
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
-    ('/' + token, LljPage),
+    ('/' + TOKEN, LljPage),
     ('/send', SendPage),
     ('/retry', RetryPage),
     ('/message', MessagePage),
