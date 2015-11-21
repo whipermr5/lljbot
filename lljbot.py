@@ -220,6 +220,8 @@ class LljPage(webapp2.RequestHandler):
     CMD_SUB = '\n/subscribe - re-enable automatic updates'
     CMD_LIST_UNSUB = CMD_LIST + CMD_UNSUB
     CMD_LIST_SUB = CMD_LIST + CMD_SUB
+    RATE_LINK = '\n\nEnjoy using LLJ Bot? Click the link below to rate it!\n' + \
+                'https://telegram.me/storebot?start=lljbot'
 
     REMOTE_ERROR = 'Sorry, I\'m having some difficulty accessing the LLJ website. ' + \
                    'Please try again later.'
@@ -387,6 +389,7 @@ class LljPage(webapp2.RequestHandler):
                 response += self.CMD_LIST_UNSUB
             else:
                 response += self.CMD_LIST_SUB
+            response += self.RATE_LINK
 
             sendMessage(uid, response)
             return
@@ -401,6 +404,7 @@ class LljPage(webapp2.RequestHandler):
                 response += self.CMD_LIST_UNSUB
             else:
                 response += self.CMD_LIST_SUB
+            response += self.RATE_LINK
 
             sendMessage(uid, response)
             return
