@@ -193,7 +193,8 @@ def sendMessage(uid, text, auto=False, force=False, markdown=False):
                 existing_user.updateLastAuto()
     else:
         error_description = response.get('description')
-        if error_description == '[Error]: Bot was kicked from a chat':
+        if error_description == '[Error]: Bot was kicked from a chat' or \
+           error_description == '[Error]: Bad Request: group is deactivated':
             logging.info('Bot was kicked from uid ' + str(uid))
             if existing_user:
                 existing_user.setActive(False)
@@ -466,7 +467,9 @@ class MessagePage(webapp2.RequestHandler):
                 if auto:
                     existing_user.updateLastAuto()
         else:
-            if response.get('description') == '[Error]: Bot was kicked from a chat':
+            error_description = response.get('description')
+            if error_description == '[Error]: Bot was kicked from a chat' or \
+               error_description == '[Error]: Bad Request: group is deactivated':
                 logging.info('Bot was kicked from uid ' + str(uid))
                 if existing_user:
                     existing_user.setActive(False)
