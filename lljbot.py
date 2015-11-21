@@ -334,7 +334,7 @@ class LljPage(webapp2.RequestHandler):
             sendMessage(uid, response)
             return
 
-        elif isCommand('unsubscribe'):
+        elif isCommand('unsubscribe') or isCommand('stop'):
             if not user.isActive():
                 response = 'Looks like you already unsubscribed! ' + \
                            'Don\'t worry; you won\'t be receiving any more automatic updates.'
@@ -375,6 +375,16 @@ class LljPage(webapp2.RequestHandler):
             response = self.FEEDBACK_STRING
 
             sendMessage(uid, response, force=True)
+            return
+
+        elif isCommand('help'):
+            response = 'Please enter one of the following commands:'
+            if user.isActive():
+                response += self.CMD_LIST_UNSUB
+            else:
+                response += self.CMD_LIST_SUB
+
+            sendMessage(uid, response)
             return
 
         else:
