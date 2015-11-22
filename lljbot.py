@@ -387,6 +387,17 @@ class LljPage(webapp2.RequestHandler):
             sendMessage(user, response)
             return
 
+        elif isCommand('settings'):
+            if user.isActive():
+                response = 'You are currently *subscribed*. ' + \
+                           'Use /unsubscribe to change this.'
+            else:
+                response = 'You are currently *not subscribed*. ' + \
+                           'Use /subscribe if this is a mistake.'
+
+            sendMessage(user, response, markdown=True)
+            return
+
         elif isCommand('today'):
             response = getDevo()
             if response == None:
@@ -418,7 +429,7 @@ class LljPage(webapp2.RequestHandler):
             return
 
         elif isCommand('help'):
-            response = 'Please enter one of the following commands:'
+            response = 'Hi ' + actual_name + ', please enter one of the following commands:'
             if user.isActive():
                 response += self.CMD_LIST_UNSUB
             else:
