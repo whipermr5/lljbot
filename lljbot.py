@@ -112,8 +112,11 @@ class User(db.Model):
     last_auto = db.DateTimeProperty(default=datetime.fromtimestamp(0))
     active = db.BooleanProperty(default=True)
 
+    def getUid(self):
+        return self.key().name()
+
     def isGroup(self):
-        return int(self.key().name()) < 0
+        return int(self.getUid()) < 0
 
     def isActive(self):
         return self.active
@@ -152,59 +155,67 @@ def updateProfile(uid, uname, fname, lname):
         user.put()
         return user
 
-def sendMessage(uid, text, auto=False, force=False, markdown=False):
+def sendMessage(user_or_uid, text, auto=False, force=False, markdown=False):
+    def sendShortMessage(text):
+        build = {
+            'chat_id': uid,
+            'text': text
+        }
+
+        if force:
+            build['reply_markup'] = {'force_reply': True}
+        if markdown:
+            build['parse_mode'] = 'Markdown'
+
+        data = json.dumps(build)
+
+        try:
+            if auto:
+                result = telegramPost(data, 1)
+            else:
+                result = telegramPost(data)
+        except urlfetch_errors.Error as e:
+            logging.warning('Error sending message to uid ' + uid + ':\n' + str(e))
+            taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
+            return
+
+        response = json.loads(result.content)
+
+        if response.get('ok') == True:
+            msg_id = response.get('result').get('message_id')
+            logging.info('Message ' + str(msg_id)  + ' sent to uid ' + uid)
+            if user:
+                user.updateLastSent()
+                if auto:
+                    user.updateLastAuto()
+        else:
+            error_description = response.get('description')
+            if error_description == '[Error]: Bot was kicked from a chat' or \
+               error_description == '[Error]: Bad Request: group is deactivated':
+                logging.info('Bot was kicked from uid ' + uid)
+                if user:
+                    user.setActive(False)
+            else:
+                logging.warning('Error sending message to uid ' + uid + ':\n' + result.content)
+                if error_description.startswith('[Error]: Bad Request: can\'t parse message'):
+                    if build.get('parse_mode'):
+                        del build['parse_mode']
+                    data = json.dumps(build)
+                taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
+
+    try:
+        uid = str(user_or_uid.getUid())
+        user = user_or_uid
+    except AttributeError:
+        uid = str(user_or_uid)
+        user = getUser(user_or_uid)
+
     if len(text) > 4096:
         chunks = textwrap.wrap(text, width=4096, replace_whitespace=False, drop_whitespace=False)
         for chunk in chunks:
-            sendMessage(uid, chunk, auto, force, markdown)
-        return
-
-    build = {
-        'chat_id': uid,
-        'text': text
-    }
-
-    if force:
-        build['reply_markup'] = {'force_reply': True}
-    if markdown:
-        build['parse_mode'] = 'Markdown'
-
-    data = json.dumps(build)
-
-    try:
-        if auto:
-            result = telegramPost(data, 1)
-        else:
-            result = telegramPost(data)
-    except urlfetch_errors.Error as e:
-        logging.warning('Error sending message to uid ' + str(uid) + ':\n' + str(e))
-        taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
-        return
-
-    response = json.loads(result.content)
-    existing_user = getUser(uid)
-
-    if response.get('ok') == True:
-        msg_id = response.get('result').get('message_id')
-        logging.info('Message ' + str(msg_id)  + ' sent to uid ' + str(uid))
-        if existing_user:
-            existing_user.updateLastSent()
-            if auto:
-                existing_user.updateLastAuto()
+            sendShortMessage(chunk)
     else:
-        error_description = response.get('description')
-        if error_description == '[Error]: Bot was kicked from a chat' or \
-           error_description == '[Error]: Bad Request: group is deactivated':
-            logging.info('Bot was kicked from uid ' + str(uid))
-            if existing_user:
-                existing_user.setActive(False)
-        else:
-            logging.warning('Error sending message to uid ' + str(uid) + ':\n' + result.content)
-            if error_description.startswith('[Error]: Bad Request: can\'t parse message text'):
-                if build.get('parse_mode'):
-                    del build['parse_mode']
-                data = json.dumps(build)
-            taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
+        sendShortMessage(text)
 
 class MainPage(webapp2.RequestHandler):
     def get(self):
@@ -229,7 +240,8 @@ class LljPage(webapp2.RequestHandler):
     FEEDBACK_STRING = 'Please reply with your feedback. ' + \
                       'I will relay the message to my developer.'
     FEEDBACK_ALERT = 'Feedback from {} ({}){}:\n{}'
-    FEEDBACK_SUCCESS = 'Your message has been sent to my developer. Thanks for your feedback, {}!'
+    FEEDBACK_SUCCESS = 'Your message has been sent to my developer. ' + \
+                       'Thanks for your feedback, {}!'
 
     def post(self):
         data = json.loads(self.request.body)
@@ -283,7 +295,7 @@ class LljPage(webapp2.RequestHandler):
             msg_user = self.FEEDBACK_SUCCESS.format(actual_name)
 
             sendMessage(ADMIN_ID, msg_dev)
-            sendMessage(uid, msg_user)
+            sendMessage(user, msg_user)
             return
 
         if user.last_sent == None or text == '/start':
@@ -302,12 +314,12 @@ class LljPage(webapp2.RequestHandler):
                 response = 'Hello, ' + name + '! Welcome! You are now subscribed.'
             response += ' You may enter one of the following commands:' + self.CMD_LIST_UNSUB
             response += '\n\nIn the meantime, here\'s today\'s material to get you started!'
-            sendMessage(uid, response)
+            sendMessage(user, response)
 
             response = getDevo()
             if response == None:
                 response = self.REMOTE_ERROR
-            sendMessage(uid, response, markdown=True)
+            sendMessage(user, response, markdown=True)
 
             if new_user:
                 new_alert = 'New user: ' + name
@@ -337,7 +349,7 @@ class LljPage(webapp2.RequestHandler):
                 response = 'Success!'
             response += ' You will receive material every day at midnight, Singapore time :)'
 
-            sendMessage(uid, response)
+            sendMessage(user, response)
             return
 
         elif isCommand('unsubscribe') or isCommand('stop'):
@@ -350,7 +362,7 @@ class LljPage(webapp2.RequestHandler):
                            'receive automatic updates. Use /subscribe if this was a mistake.'
             response += ' You can still get material manually by using the commands :)'
 
-            sendMessage(uid, response)
+            sendMessage(user, response)
             return
 
         elif isCommand('today'):
@@ -358,7 +370,7 @@ class LljPage(webapp2.RequestHandler):
             if response == None:
                 response = self.REMOTE_ERROR
 
-            sendMessage(uid, response, markdown=True)
+            sendMessage(user, response, markdown=True)
             return
 
         elif isCommand('yesterday'):
@@ -366,7 +378,7 @@ class LljPage(webapp2.RequestHandler):
             if response == None:
                 response = self.REMOTE_ERROR
 
-            sendMessage(uid, response, markdown=True)
+            sendMessage(user, response, markdown=True)
             return
 
         elif isCommand('tomorrow'):
@@ -374,13 +386,13 @@ class LljPage(webapp2.RequestHandler):
             if response == None:
                 response = self.REMOTE_ERROR
 
-            sendMessage(uid, response, markdown=True)
+            sendMessage(user, response, markdown=True)
             return
 
         elif isCommand('feedback'):
             response = self.FEEDBACK_STRING
 
-            sendMessage(uid, response, force=True)
+            sendMessage(user, response, force=True)
             return
 
         elif isCommand('help'):
@@ -391,7 +403,7 @@ class LljPage(webapp2.RequestHandler):
                 response += self.CMD_LIST_SUB
             response += self.RATE_LINK
 
-            sendMessage(uid, response)
+            sendMessage(user, response)
             return
 
         else:
@@ -406,7 +418,7 @@ class LljPage(webapp2.RequestHandler):
                 response += self.CMD_LIST_SUB
             response += self.RATE_LINK
 
-            sendMessage(uid, response)
+            sendMessage(user, response)
             return
 
 class SendPage(webapp2.RequestHandler):
@@ -421,8 +433,8 @@ class SendPage(webapp2.RequestHandler):
         devo = getDevo()
         if devo:
             try:
-                for user_key in query.run(keys_only=True, batch_size=1000):
-                    sendMessage(user_key.name(), devo, auto=True, markdown=True)
+                for user in query.run(batch_size=1000):
+                    sendMessage(user, devo, auto=True, markdown=True)
             except db.Error as e:
                 logging.warning('Error reading from datastore:\n' + str(e))
                 taskqueue.add(url='/retry')
@@ -440,8 +452,8 @@ class RetryPage(webapp2.RequestHandler):
 
         devo = getDevo()
         if devo:
-            for user_key in query.run(keys_only=True, batch_size=1000):
-                sendMessage(user_key.name(), devo, auto=True, markdown=True)
+            for user in query.run(batch_size=1000):
+                sendMessage(user, devo, auto=True, markdown=True)
         else:
             self.abort(502)
 
@@ -461,22 +473,22 @@ class MessagePage(webapp2.RequestHandler):
             self.abort(502)
 
         response = json.loads(result.content)
-        existing_user = getUser(uid)
+        user = getUser(uid)
 
         if response.get('ok') == True:
             msg_id = response.get('result').get('message_id')
             logging.info('Message ' + str(msg_id) + ' sent to uid ' + str(uid))
-            if existing_user:
-                existing_user.updateLastSent()
+            if user:
+                user.updateLastSent()
                 if auto:
-                    existing_user.updateLastAuto()
+                    user.updateLastAuto()
         else:
             error_description = response.get('description')
             if error_description == '[Error]: Bot was kicked from a chat' or \
                error_description == '[Error]: Bad Request: group is deactivated':
                 logging.info('Bot was kicked from uid ' + str(uid))
-                if existing_user:
-                    existing_user.setActive(False)
+                if user:
+                    user.setActive(False)
             else:
                 logging.warning('Error sending message to uid ' + str(uid) + ':\n' + result.content)
                 self.abort(502)
