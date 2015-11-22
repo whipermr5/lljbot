@@ -25,3 +25,8 @@ indexes:
   properties:
   - name: active
   - name: last_sent
+
+- kind: User
+  properties:
+  - name: promo
+  - name: created

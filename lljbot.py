@@ -111,6 +111,7 @@ class User(db.Model):
     last_sent = db.DateTimeProperty()
     last_auto = db.DateTimeProperty(default=datetime.fromtimestamp(0))
     active = db.BooleanProperty(default=True)
+    promo = db.BooleanProperty(default=False)
 
     def getUid(self):
         return self.key().name()
@@ -121,8 +122,15 @@ class User(db.Model):
     def isActive(self):
         return self.active
 
+    def isPromo(self):
+        return self.promo
+
     def setActive(self, active):
         self.active = active
+        self.put()
+
+    def setPromo(self, promo):
+        self.promo = promo
         self.put()
 
     def updateLastReceived(self):
@@ -155,7 +163,7 @@ def updateProfile(uid, uname, fname, lname):
         user.put()
         return user
 
-def sendMessage(user_or_uid, text, auto=False, force=False, markdown=False):
+def sendMessage(user_or_uid, text, auto=False, force=False, markdown=False, promo=False):
     try:
         uid = str(user_or_uid.getUid())
         user = user_or_uid
@@ -173,28 +181,40 @@ def sendMessage(user_or_uid, text, auto=False, force=False, markdown=False):
             build['reply_markup'] = {'force_reply': True}
         if markdown:
             build['parse_mode'] = 'Markdown'
+        if promo:
+            build['disable_web_page_preview'] = True
 
         data = json.dumps(build)
 
+        def queueMessage():
+            payload = json.dumps({
+                'auto': auto,
+                'promo': promo,
+                'data': data
+            })
+            taskqueue.add(url='/message', payload=payload)
+
         try:
-            if auto:
+            if auto or promo:
                 result = telegramPost(data, 1)
             else:
                 result = telegramPost(data)
         except urlfetch_errors.Error as e:
             logging.warning('Error sending message to uid ' + uid + ':\n' + str(e))
-            taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
+            queueMessage()
             return
 
         response = json.loads(result.content)
 
         if response.get('ok') == True:
-            msg_id = response.get('result').get('message_id')
-            logging.info('Message ' + str(msg_id)  + ' sent to uid ' + uid)
+            msg_id = str(response.get('result').get('message_id'))
+            logging.info('Message ' + msg_id  + ' sent to uid ' + uid)
             if user:
                 user.updateLastSent()
                 if auto:
                     user.updateLastAuto()
+                if promo:
+                    user.setPromo(True)
         else:
             error_description = response.get('description')
             if error_description == '[Error]: Bot was kicked from a chat' or \
@@ -208,7 +228,7 @@ def sendMessage(user_or_uid, text, auto=False, force=False, markdown=False):
                     if build.get('parse_mode'):
                         del build['parse_mode']
                     data = json.dumps(build)
-                taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
+                queueMessage()
 
     if len(text) > 4096:
         chunks = textwrap.wrap(text, width=4096, replace_whitespace=False, drop_whitespace=False)
@@ -459,40 +479,65 @@ class RetryPage(webapp2.RequestHandler):
         else:
             self.abort(502)
 
+class PromoPage(webapp2.RequestHandler):
+    def get(self):
+        three_days_ago = datetime.now() - timedelta(days=3)
+        query = User.all()
+        query.filter('promo =', False)
+        query.filter('created <', three_days_ago)
+        for user in query.run(batch_size=1000):
+            name = user.first_name.encode('utf-8', 'ignore').strip()
+            if user.isGroup():
+                promo_msg = 'Hello, friends in {}! Do you find LLJ Bot useful?'.format(name)
+            else:
+                promo_msg = 'Hi {}, do you find LLJ Bot useful?'.format(name)
+            promo_msg += ' Why not rate it on the bot store (you don\'t have to exit' + \
+                         ' Telegram)!\nhttps://telegram.me/storebot?start=lljbot'
+            sendMessage(user, promo_msg, promo=True)
+
+class MigratePage(webapp2.RequestHandler):
+    def get(self):
+        query = User.all()
+        for user in query.run(batch_size=1000):
+            user.setPromo(False)
+
 class MessagePage(webapp2.RequestHandler):
     def post(self):
         logging.info(self.request.body)
 
         params = json.loads(self.request.body)
         auto = params.get('auto')
+        promo = params.get('promo')
         data = params.get('data')
-        uid = json.loads(data).get('chat_id')
+        uid = str(json.loads(data).get('chat_id'))
 
         try:
             result = telegramPost(data, 4)
         except urlfetch_errors.Error as e:
-            logging.warning('Error sending message to uid ' + str(uid) + ':\n' + str(e))
+            logging.warning('Error sending message to uid ' + uid + ':\n' + str(e))
             self.abort(502)
 
         response = json.loads(result.content)
         user = getUser(uid)
 
         if response.get('ok') == True:
-            msg_id = response.get('result').get('message_id')
-            logging.info('Message ' + str(msg_id) + ' sent to uid ' + str(uid))
+            msg_id = str(response.get('result').get('message_id'))
+            logging.info('Message ' + msg_id + ' sent to uid ' + uid)
             if user:
                 user.updateLastSent()
                 if auto:
                     user.updateLastAuto()
+                if promo:
+                    user.setPromo(True)
         else:
             error_description = response.get('description')
             if error_description == '[Error]: Bot was kicked from a chat' or \
                error_description == '[Error]: Bad Request: group is deactivated':
-                logging.info('Bot was kicked from uid ' + str(uid))
+                logging.info('Bot was kicked from uid ' + uid)
                 if user:
                     user.setActive(False)
             else:
-                logging.warning('Error sending message to uid ' + str(uid) + ':\n' + result.content)
+                logging.warning('Error sending message to uid ' + uid + ':\n' + result.content)
                 self.abort(502)
 
 app = webapp2.WSGIApplication([
@@ -501,4 +546,6 @@ app = webapp2.WSGIApplication([
     ('/send', SendPage),
     ('/retry', RetryPage),
     ('/message', MessagePage),
+    ('/promo', PromoPage),
+    ('/migrate', MigratePage),
 ], debug=True)

@@ -4,20 +4,12 @@ api_version: 1
 threadsafe: true
 
 handlers:
-- url: /send
-  script: lljbot.app
-  login: admin
-
-- url: /retry
-  script: lljbot.app
-  login: admin
-
-- url: /message
-  script: lljbot.app
-  login: admin
-
 - url: /admin
   script: admin.app
+  login: admin
+
+- url: /(send|retry|message|promo|migrate)
+  script: lljbot.app
   login: admin
 
 - url: /.*
