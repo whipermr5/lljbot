@@ -27,10 +27,16 @@ class AdminPage(webapp2.RequestHandler):
 
         offset = int(self.request.get('offset', 0))
         limit = int(self.request.get('limit', 100))
+        active = int(self.request.get('active', 0))
         if limit == -1:
             limit = None
+        if active == 0:
+            active = False
+        else:
+            active = True
         query = User.all()
-        query.filter('active =', True)
+        if active:
+            query.filter('active =', True)
         query.order('-created')
         self.response.headers['Content-Type'] = 'text/html; charset=utf-8'
         self.response.write('<html>\n<head>\n<title>LLJ Bot Admin</title>\n</head>\n<body>\n' +
@@ -38,7 +44,7 @@ class AdminPage(webapp2.RequestHandler):
         self.response.write('<tr><th>#</th><th>Chat ID</th><th>Name</th>' +
                             '<th>Created</th><th>Last received</th><th>Last sent</th><th>Last auto</th><th>Active</th><th>Group</th></tr>\n')
         result = query.run(limit=limit, offset=offset, batch_size=5000)
-        i = query.count() - offset
+        i = 1
         for user in result:
             uid = prep_str(user.key().name())
             name = prep_str(user.first_name)
@@ -55,7 +61,7 @@ class AdminPage(webapp2.RequestHandler):
             self.response.write(('<tr><td>{}</td><td>{}</td><td>{}</td>' +
                                 '<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n')
                                 .format(i, uid, name, ctime, rtime, stime, atime, active, group))
-            i -= 1
+            i += 1
         self.response.write('</table>\n</body>\n</html>')
 
 app = webapp2.WSGIApplication([
