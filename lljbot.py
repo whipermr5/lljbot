@@ -455,7 +455,7 @@ class SendPage(webapp2.RequestHandler):
         devo = getDevo()
         if devo:
             try:
-                for user in query.run(batch_size=1000):
+                for user in query.run(batch_size=500):
                     sendMessage(user, devo, auto=True, markdown=True)
             except db.Error as e:
                 logging.warning('Error reading from datastore:\n' + str(e))
@@ -474,7 +474,7 @@ class RetryPage(webapp2.RequestHandler):
 
         devo = getDevo()
         if devo:
-            for user in query.run(batch_size=1000):
+            for user in query.run(batch_size=500):
                 sendMessage(user, devo, auto=True, markdown=True)
         else:
             self.abort(502)
@@ -485,7 +485,7 @@ class PromoPage(webapp2.RequestHandler):
         query = User.all()
         query.filter('promo =', False)
         query.filter('created <', three_days_ago)
-        for user in query.run(batch_size=1000):
+        for user in query.run(batch_size=500):
             name = user.first_name.encode('utf-8', 'ignore').strip()
             if user.isGroup():
                 promo_msg = 'Hello, friends in {}! Do you find LLJ Bot useful?'.format(name)
