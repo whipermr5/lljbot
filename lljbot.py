@@ -358,6 +358,7 @@ class LljPage(webapp2.RequestHandler):
             return
 
         if text == None:
+            logging.info('No text detected')
             return
 
         cmd = text.lower().strip()
@@ -444,6 +445,7 @@ class LljPage(webapp2.RequestHandler):
             return
 
         else:
+            logging.info('Unrecognised command:\n' + text)
             if user.isGroup() and '@lljbot' not in cmd:
                 return
 
@@ -535,6 +537,7 @@ class MessagePage(webapp2.RequestHandler):
             result = telegramPost(data, 4)
         except urlfetch_errors.Error as e:
             logging.warning('Error sending message to uid ' + uid + ':\n' + str(e))
+            logging.warning(data)
             self.abort(502)
 
         response = json.loads(result.content)
