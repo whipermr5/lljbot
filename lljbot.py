@@ -156,6 +156,13 @@ def updateProfile(uid, uname, fname, lname):
         return user
 
 def sendMessage(user_or_uid, text, auto=False, force=False, markdown=False):
+    try:
+        uid = str(user_or_uid.getUid())
+        user = user_or_uid
+    except AttributeError:
+        uid = str(user_or_uid)
+        user = getUser(user_or_uid)
+
     def sendShortMessage(text):
         build = {
             'chat_id': uid,
@@ -202,13 +209,6 @@ def sendMessage(user_or_uid, text, auto=False, force=False, markdown=False):
                         del build['parse_mode']
                     data = json.dumps(build)
                 taskqueue.add(url='/message', payload=json.dumps({'auto': auto, 'data': data}))
-
-    try:
-        uid = str(user_or_uid.getUid())
-        user = user_or_uid
-    except AttributeError:
-        uid = str(user_or_uid)
-        user = getUser(user_or_uid)
 
     if len(text) > 4096:
         chunks = textwrap.wrap(text, width=4096, replace_whitespace=False, drop_whitespace=False)
