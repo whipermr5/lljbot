@@ -277,21 +277,24 @@ class LljPage(webapp2.RequestHandler):
         if text:
             text = text.encode('utf-8', 'ignore')
 
-        msg_reply = msg.get('reply_to_message')
-        if msg_reply and str(msg_reply.get('from').get('id')) == BOT_ID and \
-                         msg_reply.get('text') == self.FEEDBACK_STRING:
+        def getNameString():
             name_string = actual_name
             if actual_last_name:
                 name_string += ' ' + actual_last_name
             if actual_username:
                 name_string += ' @' + actual_username
+            return name_string
+
+        msg_reply = msg.get('reply_to_message')
+        if msg_reply and str(msg_reply.get('from').get('id')) == BOT_ID and \
+                         msg_reply.get('text') == self.FEEDBACK_STRING:
 
             if user.isGroup():
                 group_string = ' via group {} ({})'.format(name, uid)
             else:
                 group_string = ''
 
-            msg_dev = self.FEEDBACK_ALERT.format(name_string, actual_id, group_string, text)
+            msg_dev = self.FEEDBACK_ALERT.format(getNameString(), actual_id, group_string, text)
             msg_user = self.FEEDBACK_SUCCESS.format(actual_name)
 
             sendMessage(ADMIN_ID, msg_dev)
@@ -322,11 +325,10 @@ class LljPage(webapp2.RequestHandler):
             sendMessage(user, response, markdown=True)
 
             if new_user:
-                new_alert = 'New user: ' + name
-                if last_name:
-                    new_alert += ' ' + actual_last_name
-                if username:
-                    new_alert += ' @' + actual_username
+                if user.isGroup():
+                    new_alert = 'New group: "{}" via user: {}'.format(name, getNameString())
+                else:
+                    new_alert = 'New user: ' + getNameString()
                 sendMessage(ADMIN_ID, new_alert)
 
             return
