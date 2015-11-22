@@ -361,6 +361,8 @@ class LljPage(webapp2.RequestHandler):
             logging.info('No text detected')
             return
 
+        logging.info(text)
+
         cmd = text.lower().strip()
         short_cmd = ''.join(cmd.split())
 
@@ -445,7 +447,7 @@ class LljPage(webapp2.RequestHandler):
             return
 
         else:
-            logging.info('Unrecognised command:\n' + text)
+            logging.info('Unrecognised command')
             if user.isGroup() and '@lljbot' not in cmd:
                 return
 
