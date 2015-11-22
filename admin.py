@@ -36,7 +36,7 @@ class AdminPage(webapp2.RequestHandler):
                             '<table border="1" style="border: 1px solid black; border-collapse: collapse; padding: 10px;">\n')
         self.response.write('<tr><th>#</th><th>Chat ID</th><th>Name</th>' +
                             '<th>Created</th><th>Last received</th><th>Last sent</th><th>Last auto</th><th>Active</th><th>Group</th></tr>\n')
-        result = query.run(limit=limit, offset=offset)
+        result = query.run(limit=limit, offset=offset, batch_size=1000)
         i = query.count() - offset
         for user in result:
             uid = prep_str(user.key().name())
