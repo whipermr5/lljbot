@@ -103,12 +103,12 @@ def telegramPost(data, deadline=3):
                           headers=JSON_HEADER, deadline=deadline)
 
 class User(db.Model):
-    username = db.StringProperty()
-    first_name = db.StringProperty(multiline=True)
-    last_name = db.StringProperty(multiline=True)
+    username = db.StringProperty(indexed=False)
+    first_name = db.StringProperty(multiline=True, indexed=False)
+    last_name = db.StringProperty(multiline=True, indexed=False)
     created = db.DateTimeProperty(auto_now_add=True)
-    last_received = db.DateTimeProperty(auto_now_add=True)
-    last_sent = db.DateTimeProperty()
+    last_received = db.DateTimeProperty(auto_now_add=True, indexed=False)
+    last_sent = db.DateTimeProperty(indexed=False)
     last_auto = db.DateTimeProperty(default=datetime.fromtimestamp(0))
     active = db.BooleanProperty(default=True)
     promo = db.BooleanProperty(default=False)
