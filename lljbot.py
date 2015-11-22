@@ -218,7 +218,9 @@ def sendMessage(user_or_uid, text, auto=False, force=False, markdown=False, prom
         else:
             error_description = response.get('description')
             if error_description == '[Error]: Bot was kicked from a chat' or \
-               error_description == '[Error]: Bad Request: group is deactivated':
+               error_description == '[Error]: Bad Request: group is deactivated' or \
+               error_description == '[Error]: PEER_ID_INVALID' or \
+               error_description == '[Error]: Forbidden: bot was kicked from the group chat':
                 logging.info('Bot was kicked from uid ' + uid)
                 if user:
                     user.setActive(False)
@@ -542,7 +544,9 @@ class MessagePage(webapp2.RequestHandler):
         else:
             error_description = response.get('description')
             if error_description == '[Error]: Bot was kicked from a chat' or \
-               error_description == '[Error]: Bad Request: group is deactivated':
+               error_description == '[Error]: Bad Request: group is deactivated' or \
+               error_description == '[Error]: PEER_ID_INVALID' or \
+               error_description == '[Error]: Forbidden: bot was kicked from the group chat':
                 logging.info('Bot was kicked from uid ' + uid)
                 if user:
                     user.setActive(False)
