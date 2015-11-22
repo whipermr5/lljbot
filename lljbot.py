@@ -521,6 +521,7 @@ class MigratePage(webapp2.RequestHandler):
         # query = User.all()
         # for user in query.run(batch_size=1000):
         #     user.setPromo(False)
+        return
 
 class MessagePage(webapp2.RequestHandler):
     def post(self):
