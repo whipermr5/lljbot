@@ -312,7 +312,7 @@ class LljPage(webapp2.RequestHandler):
         msg_reply = msg.get('reply_to_message')
         if msg_reply and str(msg_reply.get('from').get('id')) == BOT_ID and \
                          msg_reply.get('text') == self.FEEDBACK_STRING:
-            logging.info('Type: New feedback\n' + str(text))
+            logging.info('Type: Feedback\n' + str(text))
 
             if user.isGroup():
                 group_string = ' via group {} ({})'.format(name, uid)
@@ -328,10 +328,10 @@ class LljPage(webapp2.RequestHandler):
 
         if user.last_sent == None or text == '/start':
             if user.last_sent == None:
-                logging.info('Type: New user start')
+                logging.info('Type: Start')
                 new_user = True
             else:
-                logging.info('Type: Existing user start')
+                logging.info('Type: Start (existing user)')
                 new_user = False
 
             if not user.isActive():
@@ -361,7 +361,7 @@ class LljPage(webapp2.RequestHandler):
             return
 
         if text == None:
-            logging.info('Type: No text detected')
+            logging.info('Type: Non-text')
             return
 
         logging.info('Type: Command\n' + text)
