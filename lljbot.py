@@ -499,6 +499,9 @@ class RetryPage(webapp2.RequestHandler):
 
 class PromoPage(webapp2.RequestHandler):
     def get(self):
+        taskqueue.add(url='/promo')
+
+    def post(self):
         three_days_ago = datetime.now() - timedelta(days=3)
         query = User.all()
         query.filter('promo =', False)
@@ -515,9 +518,9 @@ class PromoPage(webapp2.RequestHandler):
 
 class MigratePage(webapp2.RequestHandler):
     def get(self):
-        query = User.all()
-        for user in query.run(batch_size=1000):
-            user.setPromo(False)
+        # query = User.all()
+        # for user in query.run(batch_size=1000):
+        #     user.setPromo(False)
 
 class MessagePage(webapp2.RequestHandler):
     def post(self):
