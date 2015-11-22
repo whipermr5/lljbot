@@ -438,7 +438,6 @@ class LljPage(webapp2.RequestHandler):
                 response += self.CMD_LIST_UNSUB
             else:
                 response += self.CMD_LIST_SUB
-            response += self.RATE_LINK
 
             sendMessage(user, response)
             return
