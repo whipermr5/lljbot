@@ -196,7 +196,9 @@ def sendMessage(user_or_uid, text, auto=False, force=False, markdown=False, prom
 
         try:
             if auto or promo:
-                result = telegramPost(data, 1)
+                #result = telegramPost(data, 1)
+                queueMessage()
+                return
             else:
                 result = telegramPost(data)
         except urlfetch_errors.Error as e:
@@ -486,8 +488,12 @@ class RetryPage(webapp2.RequestHandler):
 
         devo = getDevo()
         if devo:
-            for user in query.run(batch_size=500):
-                sendMessage(user, devo, auto=True, markdown=True)
+            try:
+                for user in query.run(batch_size=500):
+                    sendMessage(user, devo, auto=True, markdown=True)
+            except db.Error as e:
+                logging.warning('Error reading from datastore:\n' + str(e))
+                self.abort(502)
         else:
             self.abort(502)
 
@@ -515,8 +521,6 @@ class MigratePage(webapp2.RequestHandler):
 
 class MessagePage(webapp2.RequestHandler):
     def post(self):
-        logging.info(self.request.body)
-
         params = json.loads(self.request.body)
         auto = params.get('auto')
         promo = params.get('promo')
@@ -552,6 +556,7 @@ class MessagePage(webapp2.RequestHandler):
                     user.setActive(False)
             else:
                 logging.warning('Error sending message to uid ' + uid + ':\n' + result.content)
+                logging.warning(data)
                 self.abort(502)
 
 app = webapp2.WSGIApplication([
