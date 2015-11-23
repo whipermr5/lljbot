@@ -126,7 +126,7 @@ class User(db.Model):
     created = db.DateTimeProperty(auto_now_add=True)
     last_received = db.DateTimeProperty(auto_now_add=True, indexed=False)
     last_sent = db.DateTimeProperty(indexed=False)
-    last_auto = db.DateTimeProperty(default=datetime.fromtimestamp(0))
+    last_auto = db.DateTimeProperty(auto_now_add=True)
     active = db.BooleanProperty(default=True)
     promo = db.BooleanProperty(default=False)
 
@@ -172,7 +172,9 @@ class User(db.Model):
         self.put()
 
     def update_last_auto(self):
-        self.last_auto = datetime.now()
+        today = (datetime.utcnow() + timedelta(hours=8)).date()
+        today_time = datetime(today.year, today.month, today.day) - timedelta(hours=8)
+        self.last_auto = today_time
         self.put()
 
 def get_user(uid):
