@@ -176,7 +176,7 @@ def update_profile(uid, uname, fname, lname):
         user.put()
         return user
 
-def send_message(user_or_uid, text, auto=False, force=False, markdown=False, promo=False):
+def send_message(user_or_uid, text, msg_type='message', force_reply=False, markdown=False):
     try:
         uid = str(user_or_uid.get_uid())
         user = user_or_uid
@@ -190,42 +190,35 @@ def send_message(user_or_uid, text, auto=False, force=False, markdown=False, pro
             'text': text
         }
 
-        if force:
+        if force_reply:
             build['reply_markup'] = {'force_reply': True}
         if markdown:
             build['parse_mode'] = 'Markdown'
-        if promo:
+        if msg_type == 'promo':
             build['disable_web_page_preview'] = True
 
         data = json.dumps(build)
 
-        if auto:
-            msg_type = 'daily'
-        else if promo:
-            msg_type = 'promo'
-        else:
-            msg_type = 'message'
-
-        def queueMessage():
+        def queue_message():
             payload = json.dumps({
-                'auto': auto,
-                'promo': promo,
+                'msg_type': msg_type,
                 'data': data
             })
             taskqueue.add(url='/message', payload=payload)
 
-        if auto or promo:
-            if auto:
+        if msg_type in ('daily', 'promo'):
+            if msg_type == 'daily':
                 user.update_last_auto()
-            if promo:
+            else if msg_type == 'promo':
                 user.set_promo(True)
-            queueMessage()
+
+            queue_message()
             logging.info('Enqueued {} to uid {} ({})'.format(msg_type, uid, user.get_description()))
             return
 
         def log_and_queue(error_msg):
             logging.warning('Error sending {} to uid {}:\n{}'.format(msg_type, uid, error_msg))
-            queueMessage()
+            queue_message()
 
         try:
             result = telegram_post(data)
@@ -239,7 +232,7 @@ def send_message(user_or_uid, text, auto=False, force=False, markdown=False, pro
             if build.get('parse_mode'):
                 del build['parse_mode']
             data = json.dumps(build)
-            queueMessage()
+            queue_message()
 
         else if handle_response(response, user, uid, msg_type) == False:
             log_and_queue(result.content)
@@ -464,7 +457,7 @@ class LljPage(webapp2.RequestHandler):
         elif isCommand('feedback'):
             response = self.FEEDBACK_STRING
 
-            send_message(user, response, force=True)
+            send_message(user, response, force_reply=True)
 
         elif isCommand('help'):
             response = 'Hi ' + actual_name + ', please enter one of the following commands:'
@@ -505,7 +498,7 @@ class SendPage(webapp2.RequestHandler):
 
         try:
             for user in query.run(batch_size=500):
-                send_message(user, devo, auto=True, markdown=True)
+                send_message(user, devo, msg_type='daily', markdown=True)
         except db.Error as e:
             logging.warning('Error reading from datastore:\n' + str(e))
             return False
@@ -537,22 +530,14 @@ class PromoPage(webapp2.RequestHandler):
                 promo_msg = 'Hi {}, do you find LLJ Bot useful?'.format(name)
             promo_msg += ' Why not rate it on the bot store (you don\'t have to exit' + \
                          ' Telegram)!\nhttps://telegram.me/storebot?start=lljbot'
-            send_message(user, promo_msg, promo=True)
+            send_message(user, promo_msg, msg_type='promo')
 
 class MessagePage(webapp2.RequestHandler):
     def post(self):
         params = json.loads(self.request.body)
-        auto = params.get('auto')
-        promo = params.get('promo')
+        msg_type = params.get('msg_type')
         data = params.get('data')
         uid = str(json.loads(data).get('chat_id'))
-
-        if auto:
-            msg_type = 'daily'
-        else if promo:
-            msg_type = 'promo'
-        else:
-            msg_type = 'message'
 
         def log_and_abort(error_msg):
             logging.warning('Error sending {} to uid {}:\n{}'.format(msg_type, uid, error_msg))
