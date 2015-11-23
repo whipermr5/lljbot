@@ -289,14 +289,15 @@ class MainPage(webapp2.RequestHandler):
 
 class LljPage(webapp2.RequestHandler):
     CMD_LIST = '\n\n' + \
-                   '/today - get today\'s material\n' + \
-                   '/yesterday - get yesterday\'s material\n' + \
-                   '/tomorrow - get tomorrow\'s material'
-    CMD_UNSUB = '\n/unsubscribe - disable automatic updates'
-    CMD_SUB = '\n/subscribe - re-enable automatic updates'
-    CMD_LIST_UNSUB = CMD_LIST + CMD_UNSUB
-    CMD_LIST_SUB = CMD_LIST + CMD_SUB
-    RATE_LINK = '\n\nEnjoy using LLJ Bot? Click the link below to rate it!\n' + \
+               '/today - get today\'s material\n' + \
+               '/yesterday - get yesterday\'s material\n' + \
+               '/tomorrow - get tomorrow\'s material'
+    CMD_UNSUB = '/unsubscribe - disable automatic updates'
+    CMD_SUB = '/subscribe - re-enable automatic updates'
+    CMD_LIST_UNSUB = CMD_LIST + '\n' + CMD_UNSUB
+    CMD_LIST_SUB = CMD_LIST + '\n' + CMD_SUB
+
+    RATE_LINK = 'Enjoy using LLJ Bot? Click the link below to rate it!\n' + \
                 'https://telegram.me/storebot?start=lljbot'
 
     REMOTE_ERROR = 'Sorry, I\'m having some difficulty accessing the LLJ website. ' + \
@@ -478,7 +479,7 @@ class LljPage(webapp2.RequestHandler):
                 response += self.CMD_LIST_UNSUB
             else:
                 response += self.CMD_LIST_SUB
-            response += self.RATE_LINK
+            response += '\n\n' + self.RATE_LINK
 
             send_message(user, response)
 
