@@ -199,6 +199,13 @@ def send_message(user_or_uid, text, auto=False, force=False, markdown=False, pro
 
         data = json.dumps(build)
 
+        if auto:
+            msg_type = 'daily'
+        else if promo:
+            msg_type = 'promo'
+        else:
+            msg_type = 'message'
+
         def queueMessage():
             payload = json.dumps({
                 'auto': auto,
@@ -207,45 +214,35 @@ def send_message(user_or_uid, text, auto=False, force=False, markdown=False, pro
             })
             taskqueue.add(url='/message', payload=payload)
 
-        try:
-            if auto or promo:
-                if auto:
-                    user.update_last_auto()
-                if promo:
-                    user.set_promo(True)
-                queueMessage()
-                logging.info('Enqueued message to uid {} ({})'.format(uid, user.get_description()))
-                return
-            else:
-                result = telegram_post(data)
-        except urlfetch_errors.Error as e:
-            logging.warning('Error sending message to uid ' + uid + ':\n' + str(e))
+        if auto or promo:
+            if auto:
+                user.update_last_auto()
+            if promo:
+                user.set_promo(True)
             queueMessage()
+            logging.info('Enqueued {} to uid {} ({})'.format(msg_type, uid, user.get_description()))
+            return
+
+        def log_and_queue(error_msg):
+            logging.warning('Error sending {} to uid {}:\n{}'.format(msg_type, uid, error_msg))
+            queueMessage()
+
+        try:
+            result = telegram_post(data)
+        except urlfetch_errors.Error as e:
+            log_and_queue(str(e))
             return
 
         response = json.loads(result.content)
 
-        if response.get('ok') == True:
-            msg_id = str(response.get('result').get('message_id'))
-            logging.info('Message ' + msg_id  + ' sent to uid ' + uid)
-            if user:
-                user.update_last_sent()
-        else:
-            error_description = response.get('description')
-            if error_description == '[Error]: Bot was kicked from a chat' or \
-               error_description == '[Error]: Bad Request: group is deactivated' or \
-               error_description == '[Error]: PEER_ID_INVALID' or \
-               error_description == '[Error]: Forbidden: bot was kicked from the group chat':
-                logging.info('Bot was kicked from uid ' + uid)
-                if user:
-                    user.set_active(False)
-            else:
-                logging.warning('Error sending message to uid ' + uid + ':\n' + result.content)
-                if error_description.startswith('[Error]: Bad Request: can\'t parse message'):
-                    if build.get('parse_mode'):
-                        del build['parse_mode']
-                    data = json.dumps(build)
-                queueMessage()
+        if response.get('description').startswith('[Error]: Bad Request: can\'t parse message'):
+            if build.get('parse_mode'):
+                del build['parse_mode']
+            data = json.dumps(build)
+            queueMessage()
+
+        else if handle_response(response, user, uid, msg_type) == False:
+            log_and_queue(result.content)
 
     if len(text) > 4096:
         chunks = textwrap.wrap(text, width=4096, replace_whitespace=False, drop_whitespace=False)
@@ -253,6 +250,31 @@ def send_message(user_or_uid, text, auto=False, force=False, markdown=False, pro
             send_short_message(chunk)
     else:
         send_short_message(text)
+
+def handle_response(response, user, uid, msg_type):
+    RECOGNISED_ERRORS = ('[Error]: PEER_ID_INVALID',
+                         '[Error]: Bot was kicked from a chat',
+                         '[Error]: Bad Request: group is deactivated',
+                         '[Error]: Forbidden: bot was kicked from the group chat')
+
+    if response.get('ok') == True:
+        msg_id = str(response.get('result').get('message_id'))
+        logging.info('{} {} sent to uid {}'.format(msg_type, msg_id, uid))
+        if user:
+            user.update_last_sent()
+
+    else:
+        error_description = response.get('description')
+        if error_description not in RECOGNISED_ERRORS:
+            return False
+
+        logging.info('Bot was kicked from uid ' + uid + ' (' + error_description + ')')
+        if user:
+            user.set_active(False)
+            if msg_type == 'promo':
+                user.set_promo(False)
+
+    return True
 
 class MainPage(webapp2.RequestHandler):
     def get(self):
@@ -525,36 +547,28 @@ class MessagePage(webapp2.RequestHandler):
         data = params.get('data')
         uid = str(json.loads(data).get('chat_id'))
 
+        if auto:
+            msg_type = 'daily'
+        else if promo:
+            msg_type = 'promo'
+        else:
+            msg_type = 'message'
+
+        def log_and_abort(error_msg):
+            logging.warning('Error sending {} to uid {}:\n{}'.format(msg_type, uid, error_msg))
+            logging.warning(data)
+            self.abort(502)
+
         try:
             result = telegram_post(data, 4)
         except urlfetch_errors.Error as e:
-            logging.warning('Error sending message to uid ' + uid + ':\n' + str(e))
-            logging.warning(data)
-            self.abort(502)
+            log_and_abort(str(e))
 
         response = json.loads(result.content)
         user = get_user(uid)
 
-        if response.get('ok') == True:
-            msg_id = str(response.get('result').get('message_id'))
-            logging.info('Message ' + msg_id + ' sent to uid ' + uid)
-            if user:
-                user.update_last_sent()
-        else:
-            error_description = response.get('description')
-            if error_description == '[Error]: Bot was kicked from a chat' or \
-               error_description == '[Error]: Bad Request: group is deactivated' or \
-               error_description == '[Error]: PEER_ID_INVALID' or \
-               error_description == '[Error]: Forbidden: bot was kicked from the group chat':
-                logging.info('Bot was kicked from uid ' + uid)
-                if user:
-                    user.set_active(False)
-                    if promo:
-                        user.set_promo(False)
-            else:
-                logging.warning('Error sending message to uid ' + uid + ':\n' + result.content)
-                logging.warning(data)
-                self.abort(502)
+        if handle_response(response, user, uid, msg_type) == False:
+            log_and_abort(result.content)
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
