@@ -110,6 +110,11 @@ LOG_TYPE_NON_TEXT = 'Type: Non-text'
 LOG_TYPE_COMMAND = 'Type: Command\n'
 LOG_UNRECOGNISED = 'Unrecognised command'
 
+RECOGNISED_ERRORS = ('[Error]: PEER_ID_INVALID',
+                     '[Error]: Bot was kicked from a chat',
+                     '[Error]: Bad Request: group is deactivated',
+                     '[Error]: Forbidden: bot was kicked from the group chat')
+
 def telegram_post(data, deadline=3):
     return urlfetch.fetch(url=TELEGRAM_URL_SEND, payload=data, method=urlfetch.POST,
                           headers=JSON_HEADER, deadline=deadline)
@@ -255,11 +260,6 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
         send_short_message(text)
 
 def handle_response(response, user, uid, msg_type):
-    RECOGNISED_ERRORS = ('[Error]: PEER_ID_INVALID',
-                         '[Error]: Bot was kicked from a chat',
-                         '[Error]: Bad Request: group is deactivated',
-                         '[Error]: Forbidden: bot was kicked from the group chat')
-
     if response.get('ok') == True:
         msg_id = str(response.get('result').get('message_id'))
         logging.info(LOG_SENT.format(msg_type.capitalize(), msg_id, uid, user.get_description()))
@@ -297,17 +297,40 @@ class LljPage(webapp2.RequestHandler):
     CMD_LIST_UNSUB = CMD_LIST + '\n' + CMD_UNSUB
     CMD_LIST_SUB = CMD_LIST + '\n' + CMD_SUB
 
-    RATE_LINK = 'Enjoy using LLJ Bot? Click the link below to rate it!\n' + \
-                'https://telegram.me/storebot?start=lljbot'
+    WELCOME_GROUP = 'Hello, friends in {}! Thanks for adding me in! ' + \
+                    'This group chat is now subscribed.'
+    WELCOME_USER = 'Hello, {}! Welcome! You are now subscribed.'
+    WELCOME_GET_STARTED = ' You may enter one of the following commands:' + CMD_LIST_UNSUB + \
+                          '\n\nIn the meantime, here\'s today\'s material to get you started!'
 
     REMOTE_ERROR = 'Sorry, I\'m having some difficulty accessing the LLJ website. ' + \
                    'Please try again later.'
+
+    SUB_ALREADY = 'Looks like you are already subscribed!'
+    SUB_SUCCESS = 'Success!'
+    SUB_APPENDIX = ' You will receive material every day at midnight, Singapore time :)'
+
+    UNSUB_ALREADY = 'Looks like you already unsubscribed! Don\'t worry; ' + \
+                    'you won\'t be receiving any more automatic updates.'
+    UNSUB_SUCCESS = 'You have successfully unsubscribed and will no longer receive ' + \
+                    'automatic updates. Use /subscribe if this was a mistake.'
+    UNSUB_APPENDIX = ' You can still get material manually by using the commands :)'
+
+    SETTINGS_SUB = 'You are currently *subscribed*. Use /unsubscribe to change this.'
+    SETTINGS_UNSUB = 'You are currently *not subscribed*. Use /subscribe if this is a mistake.'
+
+    HELP = 'Hi {}, please enter one of the following commands:'
+    HELP_LINK = 'Enjoy using LLJ Bot? Click the link below to rate it!\n' + \
+                'https://telegram.me/storebot?start=lljbot'
 
     FEEDBACK_STRING = 'Please reply with your feedback. ' + \
                       'I will relay the message to my developer.'
     FEEDBACK_ALERT = 'Feedback from {} ({}){}:\n{}'
     FEEDBACK_SUCCESS = 'Your message has been sent to my developer. ' + \
                        'Thanks for your feedback, {}!'
+
+    UNRECOGNISED = 'Sorry {}, I couldn\'t understand that. ' + \
+                   'Please enter one of the following commands:'
 
     def post(self):
         data = json.loads(self.request.body)
@@ -380,12 +403,10 @@ class LljPage(webapp2.RequestHandler):
                 user.set_active(True)
 
             if user.is_group():
-                response = 'Hello, friends in ' + name + \
-                           '! Thanks for adding me in! This group chat is now subscribed.'
+                response = self.WELCOME_GROUP.format(name)
             else:
-                response = 'Hello, ' + name + '! Welcome! You are now subscribed.'
-            response += ' You may enter one of the following commands:' + self.CMD_LIST_UNSUB
-            response += '\n\nIn the meantime, here\'s today\'s material to get you started!'
+                response = self.WELCOME_USER.format(name)
+            response += self.WELCOME_GET_STARTED
             send_message(user, response)
 
             response = get_devo()
@@ -415,39 +436,7 @@ class LljPage(webapp2.RequestHandler):
             flexi_pattern = ('/{}@lljbot'.format(word), '@lljbot/{}'.format(word))
             return cmd == '/' + word or short_cmd.startswith(flexi_pattern)
 
-        if is_command('subscribe'):
-            if user.is_active():
-                response = 'Looks like you are already subscribed!'
-            else:
-                user.set_active(True)
-                response = 'Success!'
-            response += ' You will receive material every day at midnight, Singapore time :)'
-
-            send_message(user, response)
-
-        elif is_command('unsubscribe') or is_command('stop'):
-            if not user.is_active():
-                response = 'Looks like you already unsubscribed! ' + \
-                           'Don\'t worry; you won\'t be receiving any more automatic updates.'
-            else:
-                user.set_active(False)
-                response = 'You have successfully unsubscribed and will no longer ' + \
-                           'receive automatic updates. Use /subscribe if this was a mistake.'
-            response += ' You can still get material manually by using the commands :)'
-
-            send_message(user, response)
-
-        elif is_command('settings'):
-            if user.is_active():
-                response = 'You are currently *subscribed*. ' + \
-                           'Use /unsubscribe to change this.'
-            else:
-                response = 'You are currently *not subscribed*. ' + \
-                           'Use /subscribe if this is a mistake.'
-
-            send_message(user, response, markdown=True)
-
-        elif is_command('today'):
+        if is_command('today'):
             response = get_devo()
             if response == None:
                 response = self.REMOTE_ERROR
@@ -468,28 +457,55 @@ class LljPage(webapp2.RequestHandler):
 
             send_message(user, response, markdown=True)
 
-        elif is_command('feedback'):
-            response = self.FEEDBACK_STRING
+        elif is_command('subscribe'):
+            if user.is_active():
+                response = self.SUB_ALREADY
+            else:
+                user.set_active(True)
+                response = self.SUB_SUCCESS
+            response += self.SUB_APPENDIX
 
-            send_message(user, response, force_reply=True)
+            send_message(user, response)
+
+        elif is_command('unsubscribe') or is_command('stop'):
+            if not user.is_active():
+                response = self.UNSUB_ALREADY
+            else:
+                user.set_active(False)
+                response = self.UNSUB_SUCCESS
+            response += self.UNSUB_APPENDIX
+
+            send_message(user, response)
+
+        elif is_command('settings'):
+            if user.is_active():
+                response = self.SETTINGS_SUB
+            else:
+                response = self.SETTINGS_UNSUB
+
+            send_message(user, response, markdown=True)
 
         elif is_command('help'):
-            response = 'Hi ' + actual_name + ', please enter one of the following commands:'
+            response = self.HELP.format(actual_name)
             if user.is_active():
                 response += self.CMD_LIST_UNSUB
             else:
                 response += self.CMD_LIST_SUB
-            response += '\n\n' + self.RATE_LINK
+            response += '\n\n' + self.HELP_LINK
 
             send_message(user, response)
+
+        elif is_command('feedback'):
+            response = self.FEEDBACK_STRING
+
+            send_message(user, response, force_reply=True)
 
         else:
             logging.info(LOG_UNRECOGNISED)
             if user.is_group() and '@lljbot' not in cmd:
                 return
 
-            response = 'Sorry ' + actual_name + ', I couldn\'t understand that. ' + \
-                       'Please enter one of the following commands:'
+            response = self.UNRECOGNISED.format(actual_name)
             if user.is_active():
                 response += self.CMD_LIST_UNSUB
             else:
