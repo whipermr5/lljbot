@@ -98,6 +98,18 @@ TELEGRAM_URL = 'https://api.telegram.org/bot' + TOKEN
 TELEGRAM_URL_SEND = TELEGRAM_URL + '/sendMessage'
 JSON_HEADER = {'Content-Type': 'application/json;charset=utf-8'}
 
+LOG_SENT = '{} {} sent to uid {} ({})'
+LOG_ENQUEUED = 'Enqueued {} to uid {} ({})'
+LOG_DID_NOT_SEND = 'Did not send {} to uid {} ({}): {}'
+LOG_ERROR_SENDING = 'Error sending {} to uid {} ({}):\n{}'
+LOG_ERROR_DATASTORE = 'Error reading from datastore:\n'
+LOG_TYPE_FEEDBACK = 'Type: Feedback\n'
+LOG_TYPE_START_NEW = 'Type: Start (new user)'
+LOG_TYPE_START_EXISTING = 'Type: Start (existing user)'
+LOG_TYPE_NON_TEXT = 'Type: Non-text'
+LOG_TYPE_COMMAND = 'Type: Command\n'
+LOG_UNRECOGNISED = 'Unrecognised command'
+
 def telegram_post(data, deadline=3):
     return urlfetch.fetch(url=TELEGRAM_URL_SEND, payload=data, method=urlfetch.POST,
                           headers=JSON_HEADER, deadline=deadline)
@@ -205,7 +217,7 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
                 'data': data
             })
             taskqueue.add(url='/message', payload=payload)
-            logging.info('Enqueued {} to uid {} ({})'.format(msg_type, uid, user.get_description()))
+            logging.info(LOG_ENQUEUED.format(msg_type, uid, user.get_description()))
 
         if msg_type in ('daily', 'promo'):
             if msg_type == 'daily':
@@ -219,7 +231,7 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
         try:
             result = telegram_post(data)
         except urlfetch_errors.Error as e:
-            logging.warning('Error sending {} to uid {} ({}):\n{}'.format(msg_type, uid, user.get_description(), str(e)))
+            logging.warning(LOG_ERROR_SENDING.format(msg_type, uid, user.get_description(), str(e)))
             queue_message()
             return
 
@@ -250,17 +262,19 @@ def handle_response(response, user, uid, msg_type):
 
     if response.get('ok') == True:
         msg_id = str(response.get('result').get('message_id'))
-        logging.info('{} {} sent to uid {} ({})'.format(msg_type.capitalize(), msg_id, uid, user.get_description()))
+        logging.info(LOG_SENT.format(msg_type.capitalize(), msg_id, uid, user.get_description()))
         if user:
             user.update_last_sent()
 
     else:
         error_description = str(response.get('description'))
         if error_description not in RECOGNISED_ERRORS:
-            logging.warning('Error sending {} to uid {} ({}):\n{}'.format(msg_type, uid, user.get_description(), error_description))
+            logging.warning(LOG_ERROR_SENDING.format(msg_type, uid, user.get_description(),
+                                                     error_description))
             return False
 
-        logging.info('Did not send {} to uid {} ({}): {}'.format(msg_type, uid, user.get_description(), error_description))
+        logging.info(LOG_DID_NOT_SEND.format(msg_type, uid, user.get_description(),
+                                             error_description))
         if user:
             user.set_active(False)
             if msg_type == 'promo':
@@ -339,7 +353,7 @@ class LljPage(webapp2.RequestHandler):
         msg_reply = msg.get('reply_to_message')
         if msg_reply and str(msg_reply.get('from').get('id')) == BOT_ID and \
                          msg_reply.get('text') == self.FEEDBACK_STRING:
-            logging.info('Type: Feedback\n' + str(text))
+            logging.info(LOG_TYPE_FEEDBACK + str(text))
 
             if user.is_group():
                 group_string = ' via group {} ({})'.format(name, uid)
@@ -355,10 +369,10 @@ class LljPage(webapp2.RequestHandler):
 
         if user.last_sent == None or text == '/start':
             if user.last_sent == None:
-                logging.info('Type: Start (new user)')
+                logging.info(LOG_TYPE_START_NEW)
                 new_user = True
             else:
-                logging.info('Type: Start (existing user)')
+                logging.info(LOG_TYPE_START_EXISTING)
                 new_user = False
 
             if not user.is_active():
@@ -388,10 +402,10 @@ class LljPage(webapp2.RequestHandler):
             return
 
         if text == None:
-            logging.info('Type: Non-text')
+            logging.info(LOG_TYPE_NON_TEXT)
             return
 
-        logging.info('Type: Command\n' + text)
+        logging.info(LOG_TYPE_COMMAND + text)
 
         cmd = text.lower().strip()
         short_cmd = ''.join(cmd.split())
@@ -469,7 +483,7 @@ class LljPage(webapp2.RequestHandler):
             send_message(user, response)
 
         else:
-            logging.info('Unrecognised command')
+            logging.info(LOG_UNRECOGNISED)
             if user.is_group() and '@lljbot' not in cmd:
                 return
 
@@ -499,7 +513,7 @@ class SendPage(webapp2.RequestHandler):
             for user in query.run(batch_size=500):
                 send_message(user, devo, msg_type='daily', markdown=True)
         except db.Error as e:
-            logging.warning('Error reading from datastore:\n' + str(e))
+            logging.warning(LOG_ERROR_DATASTORE + str(e))
             return False
 
         return True
@@ -542,14 +556,14 @@ class MessagePage(webapp2.RequestHandler):
         try:
             result = telegram_post(data, 4)
         except urlfetch_errors.Error as e:
-            logging.warning('Error sending {} to uid {} ({}):\n{}'.format(msg_type, uid, user.get_description(), str(e)))
-            logging.warning(data)
+            logging.warning(LOG_ERROR_SENDING.format(msg_type, uid, user.get_description(), str(e)))
+            logging.debug(data)
             self.abort(502)
 
         response = json.loads(result.content)
 
         if handle_response(response, user, uid, msg_type) == False:
-            logging.warning(data)
+            logging.debug(data)
             self.abort(502)
 
 app = webapp2.WSGIApplication([
