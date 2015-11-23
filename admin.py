@@ -1,6 +1,6 @@
 import webapp2
 from lljbot import User
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 class AdminPage(webapp2.RequestHandler):
     def get(self):
@@ -66,10 +66,14 @@ class AdminPage(webapp2.RequestHandler):
 
 class MigratePage(webapp2.RequestHandler):
     def get(self):
-        self.response.write('Migrate page: nothing to do')
+        self.response.headers['Content-Type'] = 'text/plain'
+        self.response.write('Migrate page: running...')
         # query = User.all()
+        # query.filter('last_auto =', datetime.fromtimestamp(0))
         # for user in query.run(batch_size=1000):
-        #     user.setPromo(False)
+        #     user.last_auto = user.created
+        #     user.put()
+        self.response.write(' done!')
         return
 
 app = webapp2.WSGIApplication([
