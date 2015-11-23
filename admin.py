@@ -71,9 +71,12 @@ class MigratePage(webapp2.RequestHandler):
         # today = (datetime.utcnow() + timedelta(hours=8)).date()
         # today_time = datetime(today.year, today.month, today.day) - timedelta(hours=8)
         # query = User.all()
-        # query.filter('last_auto >', today_time)
+        # query.filter('last_auto <', today_time)
         # for user in query.run(batch_size=1000):
-        #     user.update_last_auto()
+        #     that_day = (user.last_auto + timedelta(hours=8)).date()
+        #     that_day_time = datetime(that_day.year, that_day.month, that_day.day) - timedelta(hours=8)
+        #     user.last_auto = that_day_time
+        #     user.put()
         self.response.write(' done!')
         return
 
