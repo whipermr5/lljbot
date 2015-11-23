@@ -205,15 +205,15 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
                 'data': data
             })
             taskqueue.add(url='/message', payload=payload)
+            logging.info('Enqueued {} to uid {} ({})'.format(msg_type, uid, user.get_description()))
 
         if msg_type in ('daily', 'promo'):
             if msg_type == 'daily':
                 user.update_last_auto()
-            else if msg_type == 'promo':
+            elif msg_type == 'promo':
                 user.set_promo(True)
 
             queue_message()
-            logging.info('Enqueued {} to uid {} ({})'.format(msg_type, uid, user.get_description()))
             return
 
         def log_and_queue(error_msg):
@@ -234,7 +234,7 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
             data = json.dumps(build)
             queue_message()
 
-        else if handle_response(response, user, uid, msg_type) == False:
+        elif handle_response(response, user, uid, msg_type) == False:
             log_and_queue(result.content)
 
     if len(text) > 4096:
