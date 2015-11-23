@@ -129,7 +129,7 @@ class User(db.Model):
         return name
 
     def get_description(self):
-        user_type = 'group' if self.is_group else 'user'
+        user_type = 'group' if self.is_group() else 'user'
         return user_type + ' ' + self.get_name_string()
 
     def is_group(self):
