@@ -481,43 +481,33 @@ class LljPage(webapp2.RequestHandler):
             return
 
 class SendPage(webapp2.RequestHandler):
+    def run():
+        today = (datetime.utcnow() + timedelta(hours=8)).date()
+        today_time = datetime(today.year, today.month, today.day) - timedelta(hours=8)
+
+        query = User.all()
+        query.filter('active =', True)
+        query.filter('last_auto <', today_time)
+
+        devo = getDevo()
+        if devo == None:
+            return False
+
+        try:
+            for user in query.run(batch_size=500):
+                sendMessage(user, devo, auto=True, markdown=True)
+        except db.Error as e:
+            logging.warning('Error reading from datastore:\n' + str(e))
+            return False
+
+        return True
+
     def get(self):
-        today = (datetime.utcnow() + timedelta(hours=8)).date()
-        today_time = datetime(today.year, today.month, today.day) - timedelta(hours=8)
+        if run() == False:
+            taskqueue.add(url='/send')
 
-        query = User.all()
-        query.filter('active =', True)
-        query.filter('last_auto <', today_time)
-
-        devo = getDevo()
-        if devo:
-            try:
-                for user in query.run(batch_size=500):
-                    sendMessage(user, devo, auto=True, markdown=True)
-            except db.Error as e:
-                logging.warning('Error reading from datastore:\n' + str(e))
-                taskqueue.add(url='/retry')
-        else:
-            taskqueue.add(url='/retry')
-
-class RetryPage(webapp2.RequestHandler):
     def post(self):
-        today = (datetime.utcnow() + timedelta(hours=8)).date()
-        today_time = datetime(today.year, today.month, today.day) - timedelta(hours=8)
-
-        query = User.all()
-        query.filter('active =', True)
-        query.filter('last_auto <', today_time)
-
-        devo = getDevo()
-        if devo:
-            try:
-                for user in query.run(batch_size=500):
-                    sendMessage(user, devo, auto=True, markdown=True)
-            except db.Error as e:
-                logging.warning('Error reading from datastore:\n' + str(e))
-                self.abort(502)
-        else:
+        if run() == False:
             self.abort(502)
 
 class PromoPage(webapp2.RequestHandler):
@@ -538,13 +528,6 @@ class PromoPage(webapp2.RequestHandler):
             promo_msg += ' Why not rate it on the bot store (you don\'t have to exit' + \
                          ' Telegram)!\nhttps://telegram.me/storebot?start=lljbot'
             sendMessage(user, promo_msg, promo=True)
-
-class MigratePage(webapp2.RequestHandler):
-    def get(self):
-        # query = User.all()
-        # for user in query.run(batch_size=1000):
-        #     user.setPromo(False)
-        return
 
 class MessagePage(webapp2.RequestHandler):
     def post(self):
@@ -589,8 +572,6 @@ app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/' + TOKEN, LljPage),
     ('/send', SendPage),
-    ('/retry', RetryPage),
     ('/message', MessagePage),
     ('/promo', PromoPage),
-    ('/migrate', MigratePage),
 ], debug=True)

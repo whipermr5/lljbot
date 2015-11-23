@@ -64,6 +64,15 @@ class AdminPage(webapp2.RequestHandler):
             i += 1
         self.response.write('</table>\n</body>\n</html>')
 
+class MigratePage(webapp2.RequestHandler):
+    def get(self):
+        self.response.write('Migrate page: nothing to do')
+        # query = User.all()
+        # for user in query.run(batch_size=1000):
+        #     user.setPromo(False)
+        return
+
 app = webapp2.WSGIApplication([
     ('/admin', AdminPage),
+    ('/migrate', MigratePage),
 ], debug=True)
