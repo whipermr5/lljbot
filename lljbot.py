@@ -205,7 +205,7 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
                 'data': data
             })
             taskqueue.add(url='/message', payload=payload)
-            logging.info('Enqueued {} to uid {} ({})'.format(msg_type, uid, user.get_description()))
+            logging.info('Enqueued %s to uid %s (%s)', msg_type, uid, user.get_description())
 
         if msg_type in ('daily', 'promo'):
             if msg_type == 'daily':
@@ -217,7 +217,7 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
             return
 
         def log_and_queue(error_msg):
-            logging.warning('Error sending {} to uid {}:\n{}'.format(msg_type, uid, error_msg))
+            logging.warning('Error sending %s to uid %s:\n%s', msg_type, uid, error_msg)
             queue_message()
 
         try:
@@ -227,8 +227,9 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
             return
 
         response = json.loads(result.content)
+        error_description = str(response.get('description'))
 
-        if response.get('description').startswith('[Error]: Bad Request: can\'t parse message'):
+        if error_description.startswith('[Error]: Bad Request: can\'t parse message'):
             if build.get('parse_mode'):
                 del build['parse_mode']
             data = json.dumps(build)
@@ -252,7 +253,7 @@ def handle_response(response, user, uid, msg_type):
 
     if response.get('ok') == True:
         msg_id = str(response.get('result').get('message_id'))
-        logging.info('{} {} sent to uid {}'.format(msg_type, msg_id, uid))
+        logging.info('%s %s sent to uid %s', msg_type.capitalize(), msg_id, uid)
         if user:
             user.update_last_sent()
 
@@ -397,11 +398,11 @@ class LljPage(webapp2.RequestHandler):
         cmd = text.lower().strip()
         short_cmd = ''.join(cmd.split())
 
-        def isCommand(word):
+        def is_command(word):
             flexi_pattern = ('/{}@lljbot'.format(word), '@lljbot/{}'.format(word))
             return cmd == '/' + word or short_cmd.startswith(flexi_pattern)
 
-        if isCommand('subscribe'):
+        if is_command('subscribe'):
             if user.is_active():
                 response = 'Looks like you are already subscribed!'
             else:
@@ -411,7 +412,7 @@ class LljPage(webapp2.RequestHandler):
 
             send_message(user, response)
 
-        elif isCommand('unsubscribe') or isCommand('stop'):
+        elif is_command('unsubscribe') or is_command('stop'):
             if not user.is_active():
                 response = 'Looks like you already unsubscribed! ' + \
                            'Don\'t worry; you won\'t be receiving any more automatic updates.'
@@ -423,7 +424,7 @@ class LljPage(webapp2.RequestHandler):
 
             send_message(user, response)
 
-        elif isCommand('settings'):
+        elif is_command('settings'):
             if user.is_active():
                 response = 'You are currently *subscribed*. ' + \
                            'Use /unsubscribe to change this.'
@@ -433,33 +434,33 @@ class LljPage(webapp2.RequestHandler):
 
             send_message(user, response, markdown=True)
 
-        elif isCommand('today'):
+        elif is_command('today'):
             response = get_devo()
             if response == None:
                 response = self.REMOTE_ERROR
 
             send_message(user, response, markdown=True)
 
-        elif isCommand('yesterday'):
+        elif is_command('yesterday'):
             response = get_devo(-1)
             if response == None:
                 response = self.REMOTE_ERROR
 
             send_message(user, response, markdown=True)
 
-        elif isCommand('tomorrow'):
+        elif is_command('tomorrow'):
             response = get_devo(1)
             if response == None:
                 response = self.REMOTE_ERROR
 
             send_message(user, response, markdown=True)
 
-        elif isCommand('feedback'):
+        elif is_command('feedback'):
             response = self.FEEDBACK_STRING
 
             send_message(user, response, force_reply=True)
 
-        elif isCommand('help'):
+        elif is_command('help'):
             response = 'Hi ' + actual_name + ', please enter one of the following commands:'
             if user.is_active():
                 response += self.CMD_LIST_UNSUB
@@ -540,7 +541,7 @@ class MessagePage(webapp2.RequestHandler):
         uid = str(json.loads(data).get('chat_id'))
 
         def log_and_abort(error_msg):
-            logging.warning('Error sending {} to uid {}:\n{}'.format(msg_type, uid, error_msg))
+            logging.warning('Error sending %s to uid %s:\n%s', msg_type, uid, error_msg)
             logging.warning(data)
             self.abort(502)
 
