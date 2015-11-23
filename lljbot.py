@@ -198,6 +198,7 @@ def sendMessage(user_or_uid, text, auto=False, force=False, markdown=False, prom
             if auto or promo:
                 #result = telegramPost(data, 1)
                 queueMessage()
+                logging.info('Enqueued message to uid ' + uid)
                 return
             else:
                 result = telegramPost(data)
