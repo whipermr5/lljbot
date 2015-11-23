@@ -177,7 +177,11 @@ class User(db.Model):
 
 def get_user(uid):
     key = db.Key.from_path('User', str(uid))
-    return db.get(key)
+    user = db.get(key)
+    if user == None:
+        user = User(key_name=str(uid), first_name='-')
+        user.put()
+    return user
 
 def update_profile(uid, uname, fname, lname):
     existing_user = get_user(uid)
@@ -263,8 +267,7 @@ def handle_response(response, user, uid, msg_type):
     if response.get('ok') == True:
         msg_id = str(response.get('result').get('message_id'))
         logging.info(LOG_SENT.format(msg_type.capitalize(), msg_id, uid, user.get_description()))
-        if user:
-            user.update_last_sent()
+        user.update_last_sent()
 
     else:
         error_description = str(response.get('description'))
@@ -275,12 +278,20 @@ def handle_response(response, user, uid, msg_type):
 
         logging.info(LOG_DID_NOT_SEND.format(msg_type, uid, user.get_description(),
                                              error_description))
-        if user:
-            user.set_active(False)
-            if msg_type == 'promo':
-                user.set_promo(False)
+        user.set_active(False)
+        if msg_type == 'promo':
+            user.set_promo(False)
 
     return True
+
+def send_typing(uid):
+    data = json.dumps({'chat_id': uid, 'action': 'typing'})
+    try:
+        rpc = urlfetch.create_rpc()
+        urlfetch.make_fetch_call(rpc, url=TELEGRAM_URL + '/sendChatAction', payload=data,
+                                 method=urlfetch.POST, headers=JSON_HEADER)
+    except urlfetch_errors.Error as e:
+        return
 
 class MainPage(webapp2.RequestHandler):
     def get(self):
@@ -409,6 +420,7 @@ class LljPage(webapp2.RequestHandler):
             response += self.WELCOME_GET_STARTED
             send_message(user, response)
 
+            send_typing(uid)
             response = get_devo()
             if response == None:
                 response = self.REMOTE_ERROR
@@ -437,6 +449,7 @@ class LljPage(webapp2.RequestHandler):
             return cmd == '/' + word or short_cmd.startswith(flexi_pattern)
 
         if is_command('today'):
+            send_typing(uid)
             response = get_devo()
             if response == None:
                 response = self.REMOTE_ERROR
@@ -444,6 +457,7 @@ class LljPage(webapp2.RequestHandler):
             send_message(user, response, markdown=True)
 
         elif is_command('yesterday'):
+            send_typing(uid)
             response = get_devo(-1)
             if response == None:
                 response = self.REMOTE_ERROR
@@ -451,6 +465,7 @@ class LljPage(webapp2.RequestHandler):
             send_message(user, response, markdown=True)
 
         elif is_command('tomorrow'):
+            send_typing(uid)
             response = get_devo(1)
             if response == None:
                 response = self.REMOTE_ERROR
