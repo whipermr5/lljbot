@@ -205,7 +205,7 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
                 'data': data
             })
             taskqueue.add(url='/message', payload=payload)
-            logging.info('Enqueued %s to uid %s (%s)', msg_type, uid, user.get_description())
+            logging.info('Enqueued {} to uid {} ({})'.format(msg_type, uid, user.get_description()))
 
         if msg_type in ('daily', 'promo'):
             if msg_type == 'daily':
@@ -219,8 +219,7 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
         try:
             result = telegram_post(data)
         except urlfetch_errors.Error as e:
-            logging.warning('Error sending %s to uid %s (%s):\n%s',
-                            msg_type, uid, user.get_description(), str(e))
+            logging.warning('Error sending {} to uid {} ({}):\n{}'.format(msg_type, uid, user.get_description(), str(e)))
             queue_message()
             return
 
@@ -251,20 +250,17 @@ def handle_response(response, user, uid, msg_type):
 
     if response.get('ok') == True:
         msg_id = str(response.get('result').get('message_id'))
-        logging.info('%s %s sent to uid %s (%s)',
-                     msg_type.capitalize(), msg_id, uid, user.get_description())
+        logging.info('{} {} sent to uid {} ({})'.format(msg_type.capitalize(), msg_id, uid, user.get_description()))
         if user:
             user.update_last_sent()
 
     else:
-        error_description = response.get('description')
+        error_description = str(response.get('description'))
         if error_description not in RECOGNISED_ERRORS:
-            logging.warning('Error sending %s to uid %s (%s):\n%s',
-                            msg_type, uid, user.get_description(), error_description)
+            logging.warning('Error sending {} to uid {} ({}):\n{}'.format(msg_type, uid, user.get_description(), error_description))
             return False
 
-        logging.info('Did not send %s to uid %s (%s): %s',
-                     msg_type, uid, user.get_description(), error_description)
+        logging.info('Did not send {} to uid {} ({}): {}'.format(msg_type, uid, user.get_description(), error_description))
         if user:
             user.set_active(False)
             if msg_type == 'promo':
@@ -546,8 +542,7 @@ class MessagePage(webapp2.RequestHandler):
         try:
             result = telegram_post(data, 4)
         except urlfetch_errors.Error as e:
-            logging.warning('Error sending %s to uid %s (%s):\n%s',
-                            msg_type, uid, user.get_description(), str(e))
+            logging.warning('Error sending {} to uid {} ({}):\n{}'.format(msg_type, uid, user.get_description(), str(e)))
             logging.warning(data)
             self.abort(502)
 
