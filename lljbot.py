@@ -116,6 +116,22 @@ class User(db.Model):
     def getUid(self):
         return self.key().name()
 
+    def getNameString(self):
+        def prep(string):
+            return string.encode('utf-8', 'ignore').strip()
+
+        name = prep(self.first_name)
+        if self.last_name:
+            name += ' ' + prep(self.last_name)
+        if self.username:
+            name += ' @' + prep(self.username)
+
+        return name
+
+    def getDescription(self):
+        user_type = 'group' if self.isGroup else 'user'
+        return user_type + ' ' + self.getNameString()
+
     def isGroup(self):
         return int(self.getUid()) < 0
 
@@ -196,9 +212,12 @@ def sendMessage(user_or_uid, text, auto=False, force=False, markdown=False, prom
 
         try:
             if auto or promo:
-                #result = telegramPost(data, 1)
+                if auto:
+                    user.updateLastAuto()
+                if promo:
+                    user.setPromo(True)
                 queueMessage()
-                logging.info('Enqueued message to uid ' + uid)
+                logging.info('Enqueued message to uid {} ({})'.format(uid, user.getDescription()))
                 return
             else:
                 result = telegramPost(data)
@@ -214,10 +233,6 @@ def sendMessage(user_or_uid, text, auto=False, force=False, markdown=False, prom
             logging.info('Message ' + msg_id  + ' sent to uid ' + uid)
             if user:
                 user.updateLastSent()
-                if auto:
-                    user.updateLastAuto()
-                if promo:
-                    user.setPromo(True)
         else:
             error_description = response.get('description')
             if error_description == '[Error]: Bot was kicked from a chat' or \
@@ -554,10 +569,6 @@ class MessagePage(webapp2.RequestHandler):
             logging.info('Message ' + msg_id + ' sent to uid ' + uid)
             if user:
                 user.updateLastSent()
-                if auto:
-                    user.updateLastAuto()
-                if promo:
-                    user.setPromo(True)
         else:
             error_description = response.get('description')
             if error_description == '[Error]: Bot was kicked from a chat' or \
@@ -567,6 +578,8 @@ class MessagePage(webapp2.RequestHandler):
                 logging.info('Bot was kicked from uid ' + uid)
                 if user:
                     user.setActive(False)
+                    if promo:
+                        user.setPromo(False)
             else:
                 logging.warning('Error sending message to uid ' + uid + ':\n' + result.content)
                 logging.warning(data)
