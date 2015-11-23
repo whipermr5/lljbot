@@ -541,6 +541,7 @@ class MessagePage(webapp2.RequestHandler):
         msg_type = params.get('msg_type')
         data = params.get('data')
         uid = str(json.loads(data).get('chat_id'))
+        user = get_user(uid)
 
         try:
             result = telegram_post(data, 4)
@@ -551,7 +552,6 @@ class MessagePage(webapp2.RequestHandler):
             self.abort(502)
 
         response = json.loads(result.content)
-        user = get_user(uid)
 
         if handle_response(response, user, uid, msg_type) == False:
             logging.warning(data)
