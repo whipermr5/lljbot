@@ -119,6 +119,11 @@ def telegram_post(data, deadline=3):
     return urlfetch.fetch(url=TELEGRAM_URL_SEND, payload=data, method=urlfetch.POST,
                           headers=JSON_HEADER, deadline=deadline)
 
+def get_today_time():
+    today = (datetime.utcnow() + timedelta(hours=8)).date()
+    today_time = datetime(today.year, today.month, today.day) - timedelta(hours=8)
+    return today_time
+
 class User(db.Model):
     username = db.StringProperty(indexed=False)
     first_name = db.StringProperty(multiline=True, indexed=False)
@@ -126,7 +131,7 @@ class User(db.Model):
     created = db.DateTimeProperty(auto_now_add=True)
     last_received = db.DateTimeProperty(auto_now_add=True, indexed=False)
     last_sent = db.DateTimeProperty(indexed=False)
-    last_auto = db.DateTimeProperty(auto_now_add=True)
+    last_auto = db.DateTimeProperty(default=get_today_time())
     active = db.BooleanProperty(default=True)
     promo = db.BooleanProperty(default=False)
 
@@ -172,9 +177,7 @@ class User(db.Model):
         self.put()
 
     def update_last_auto(self):
-        today = (datetime.utcnow() + timedelta(hours=8)).date()
-        today_time = datetime(today.year, today.month, today.day) - timedelta(hours=8)
-        self.last_auto = today_time
+        self.last_auto = get_today_time()
         self.put()
 
 def get_user(uid):
@@ -532,12 +535,9 @@ class LljPage(webapp2.RequestHandler):
 
 class SendPage(webapp2.RequestHandler):
     def run(self):
-        today = (datetime.utcnow() + timedelta(hours=8)).date()
-        today_time = datetime(today.year, today.month, today.day) - timedelta(hours=8)
-
         query = User.all()
         query.filter('active =', True)
-        query.filter('last_auto <', today_time)
+        query.filter('last_auto <', get_today_time())
 
         devo = get_devo()
         if devo == None:

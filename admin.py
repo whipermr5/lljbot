@@ -68,11 +68,12 @@ class MigratePage(webapp2.RequestHandler):
     def get(self):
         self.response.headers['Content-Type'] = 'text/plain'
         self.response.write('Migrate page: running...')
+        # today = (datetime.utcnow() + timedelta(hours=8)).date()
+        # today_time = datetime(today.year, today.month, today.day) - timedelta(hours=8)
         # query = User.all()
-        # query.filter('last_auto =', datetime.fromtimestamp(0))
+        # query.filter('last_auto >', today_time)
         # for user in query.run(batch_size=1000):
-        #     user.last_auto = user.created
-        #     user.put()
+        #     user.update_last_auto()
         self.response.write(' done!')
         return
 
