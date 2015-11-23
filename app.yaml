@@ -12,5 +12,9 @@ handlers:
   script: lljbot.app
   login: admin
 
+- url: /favicon.ico
+  static_files: favicon.ico
+  upload: favicon.ico
+
 - url: /.*
   script: lljbot.app
