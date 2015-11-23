@@ -344,7 +344,7 @@ class LljPage(webapp2.RequestHandler):
 
         if user.last_sent == None or text == '/start':
             if user.last_sent == None:
-                logging.info('Type: Start')
+                logging.info('Type: Start (new user)')
                 new_user = True
             else:
                 logging.info('Type: Start (existing user)')
@@ -481,7 +481,7 @@ class LljPage(webapp2.RequestHandler):
             return
 
 class SendPage(webapp2.RequestHandler):
-    def run():
+    def run(self):
         today = (datetime.utcnow() + timedelta(hours=8)).date()
         today_time = datetime(today.year, today.month, today.day) - timedelta(hours=8)
 
@@ -503,11 +503,11 @@ class SendPage(webapp2.RequestHandler):
         return True
 
     def get(self):
-        if run() == False:
+        if self.run() == False:
             taskqueue.add(url='/send')
 
     def post(self):
-        if run() == False:
+        if self.run() == False:
             self.abort(502)
 
 class PromoPage(webapp2.RequestHandler):
