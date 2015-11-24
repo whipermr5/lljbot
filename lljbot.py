@@ -487,7 +487,7 @@ class LljPage(webapp2.RequestHandler):
 
             send_message(user, response)
 
-        elif is_command('unsubscribe') or is_command('stop'):
+        elif is_command('unsubscribe') or is_command('stop') or is_command('off'):
             if not user.is_active():
                 response = self.UNSUB_ALREADY
             else:
