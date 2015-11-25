@@ -212,7 +212,7 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
         uid = str(user_or_uid)
         user = get_user(user_or_uid)
 
-    def send_short_message(text):
+    def send_short_message(text, countdown=0):
         build = {
             'chat_id': uid,
             'text': text
@@ -232,7 +232,7 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
                 'msg_type': msg_type,
                 'data': data
             })
-            taskqueue.add(url='/message', payload=payload)
+            taskqueue.add(url='/message', payload=payload, countdown=countdown)
             logging.info(LOG_ENQUEUED.format(msg_type, uid, user.get_description()))
 
         if msg_type in ('daily', 'promo'):
@@ -265,8 +265,10 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
 
     if len(text) > 4096:
         chunks = textwrap.wrap(text, width=4096, replace_whitespace=False, drop_whitespace=False)
+        i = 0
         for chunk in chunks:
-            send_short_message(chunk)
+            send_short_message(chunk, i)
+            i += 1
     else:
         send_short_message(text)
 
