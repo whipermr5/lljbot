@@ -113,7 +113,8 @@ LOG_UNRECOGNISED = 'Unrecognised command'
 RECOGNISED_ERRORS = ('[Error]: PEER_ID_INVALID',
                      '[Error]: Bot was kicked from a chat',
                      '[Error]: Bad Request: group is deactivated',
-                     '[Error]: Forbidden: bot was kicked from the group chat')
+                     '[Error]: Forbidden: bot was kicked from the group chat',
+                     '[Error]: Forbidden: can\'t write to chat with deleted user')
 
 def telegram_post(data, deadline=3):
     return urlfetch.fetch(url=TELEGRAM_URL_SEND, payload=data, method=urlfetch.POST,
