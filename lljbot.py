@@ -96,6 +96,7 @@ def get_devo(delta=0):
 from secrets import TOKEN, ADMIN_ID, BOT_ID
 TELEGRAM_URL = 'https://api.telegram.org/bot' + TOKEN
 TELEGRAM_URL_SEND = TELEGRAM_URL + '/sendMessage'
+TELEGRAM_URL_CHAT_ACTION = TELEGRAM_URL + '/sendChatAction'
 JSON_HEADER = {'Content-Type': 'application/json;charset=utf-8'}
 
 LOG_SENT = '{} {} sent to uid {} ({})'
@@ -294,7 +295,7 @@ def send_typing(uid):
     data = json.dumps({'chat_id': uid, 'action': 'typing'})
     try:
         rpc = urlfetch.create_rpc()
-        urlfetch.make_fetch_call(rpc, url=TELEGRAM_URL + '/sendChatAction', payload=data,
+        urlfetch.make_fetch_call(rpc, url=TELEGRAM_URL_CHAT_ACTION, payload=data,
                                  method=urlfetch.POST, headers=JSON_HEADER)
     except urlfetch_errors.Error as e:
         return
