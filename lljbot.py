@@ -236,7 +236,7 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
             taskqueue.add(url='/message', payload=payload, countdown=countdown)
             logging.info(LOG_ENQUEUED.format(msg_type, uid, user.get_description()))
 
-        if msg_type in ('daily', 'promo'):
+        if msg_type in ('daily', 'promo', 'mass'):
             if msg_type == 'daily':
                 user.update_last_auto()
             elif msg_type == 'promo':
@@ -605,10 +605,31 @@ class MessagePage(webapp2.RequestHandler):
             logging.debug(data)
             self.abort(502)
 
+class MassPage(webapp2.RequestHandler):
+    def get(self):
+        taskqueue.add(url='/mass')
+
+    def post(self):
+        # try:
+        #     query = User.all()
+        #     for user in query.run(batch_size=3000):
+        #         name = user.first_name.encode('utf-8', 'ignore').strip()
+        #         if user.is_group():
+        #             mass_msg = 'Hello, friends in {}!'.format(name)
+        #         else:
+        #             mass_msg = 'Hi {}!'.format(name)
+        #         mass_msg += ' If you find LLJ Bot useful, you might like BibleGateway Bot ' + \
+        #                     'too - search and retrieve bible passages right from within Telegram! ' + \
+        #                     'Click the link below to try it:\nhttps://telegram.me/biblegatewaybot'
+        #         send_message(user, mass_msg, msg_type='mass')
+        # except Exception as e:
+        #     logging.error(e)
+
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/' + TOKEN, LljPage),
     ('/send', SendPage),
     ('/message', MessagePage),
     ('/promo', PromoPage),
+    ('/mass', MassPage),
 ], debug=True)
