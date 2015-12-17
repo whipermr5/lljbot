@@ -629,6 +629,7 @@ class MassPage(webapp2.RequestHandler):
         #         send_message(user, mass_msg, msg_type='mass')
         # except Exception as e:
         #     logging.error(e)
+        pass
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
