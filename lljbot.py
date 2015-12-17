@@ -93,7 +93,7 @@ def get_devo(delta=0):
            u'\U0001F64F' + ' *Prayer*\n\n' + prayer
     return devo
 
-from secrets import TOKEN, ADMIN_ID, BOT_ID
+from secrets import TOKEN, ADMIN_ID, BOT_ID, BOTFAMILY_HASH
 TELEGRAM_URL = 'https://api.telegram.org/bot' + TOKEN
 TELEGRAM_URL_SEND = TELEGRAM_URL + '/sendMessage'
 TELEGRAM_URL_CHAT_ACTION = TELEGRAM_URL + '/sendChatAction'
@@ -386,6 +386,11 @@ class LljPage(webapp2.RequestHandler):
         text = msg.get('text')
         if text:
             text = text.encode('utf-8', 'ignore')
+
+        if text == '/botfamily_verification_code':
+            send_message(user, BOTFAMILY_HASH)
+            send_message(ADMIN_ID, 'Botfamily verified! :D')
+            return
 
         def get_from_string():
             name_string = actual_name
