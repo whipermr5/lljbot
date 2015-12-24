@@ -96,6 +96,7 @@ def get_devo(delta=0):
 from secrets import TOKEN, ADMIN_ID, BOT_ID, BOTFAMILY_HASH
 TELEGRAM_URL = 'https://api.telegram.org/bot' + TOKEN
 TELEGRAM_URL_SEND = TELEGRAM_URL + '/sendMessage'
+TELEGRAM_URL_SEND_PHOTO = TELEGRAM_URL + '/sendPhoto'
 TELEGRAM_URL_CHAT_ACTION = TELEGRAM_URL + '/sendChatAction'
 JSON_HEADER = {'Content-Type': 'application/json;charset=utf-8'}
 
@@ -124,6 +125,10 @@ RECOGNISED_ERRORS = ('[Error]: PEER_ID_INVALID',
 
 def telegram_post(data, deadline=3):
     return urlfetch.fetch(url=TELEGRAM_URL_SEND, payload=data, method=urlfetch.POST,
+                          headers=JSON_HEADER, deadline=deadline)
+
+def telegram_photo(data, deadline=3):
+    return urlfetch.fetch(url=TELEGRAM_URL_SEND_PHOTO, payload=data, method=urlfetch.POST,
                           headers=JSON_HEADER, deadline=deadline)
 
 def get_today_time():
@@ -633,26 +638,57 @@ class MessagePage(webapp2.RequestHandler):
             logging.debug(data)
             self.abort(502)
 
+class PhotoPage(webapp2.RequestHandler):
+    def post(self):
+        uid = self.request.body
+        user = get_user(uid)
+
+        build = {
+            'chat_id': uid,
+            'photo': 'AgADBQAD0agxGwgAAcgBjTgu4ZTCQJCCVb4yAARl_44G6ouSJaWxAAIC'
+        }
+        data = json.dumps(build)
+
+        try:
+            result = telegram_photo(data, 4)
+        except urlfetch_errors.Error as e:
+            logging.warning(LOG_ERROR_SENDING.format('Photo', uid, user.get_description(), str(e)))
+            logging.debug(data)
+            self.abort(502)
+
+        response = json.loads(result.content)
+
+        if handle_response(response, user, uid, 'photo') == False:
+            logging.debug(data)
+            self.abort(502)
+
 class MassPage(webapp2.RequestHandler):
     def get(self):
         taskqueue.add(url='/mass')
 
     def post(self):
-        # try:
-        #     query = User.all()
-        #     for user in query.run(batch_size=3000):
-        #         name = user.first_name.encode('utf-8', 'ignore').strip()
-        #         if user.is_group():
-        #             mass_msg = 'Hello, friends in {}!'.format(name)
-        #         else:
-        #             mass_msg = 'Hi {}!'.format(name)
-        #         mass_msg += ' If you find LLJ Bot useful, you might like BibleGateway Bot ' + \
-        #                     'too - search and retrieve bible passages right from within Telegram! ' + \
-        #                     'Click the link below to try it:\nhttps://telegram.me/biblegatewaybot'
-        #         send_message(user, mass_msg, msg_type='mass')
-        # except Exception as e:
-        #     logging.error(e)
-        pass
+        def queue_photo(user, uid):
+            taskqueue.add(url='/photo', payload=uid)
+            logging.info(LOG_ENQUEUED.format('photo', uid, user.get_description()))
+
+        try:
+            query = User.all()
+            for user in query.run(batch_size=3000):
+                uid = str(user.get_uid())
+                name = user.first_name.encode('utf-8', 'ignore').strip()
+                if user.is_group():
+                    mass_msg = 'Merry Christmas, friends in {}!'.format(name)
+                else:
+                    mass_msg = 'Merry Christmas, {}!'.format(name)
+                mass_msg += ' ' + u'\U0001F389\U0001F384\U0001F381'.encode('utf-8', 'ignore') + \
+                            '\nGod sent Jesus, the greatest gift, because of you!'
+
+                send_message(user, mass_msg, msg_type='mass')
+                queue_photo(user, uid)
+
+        except Exception as e:
+            logging.error(e)
+        #pass
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
@@ -661,4 +697,5 @@ app = webapp2.WSGIApplication([
     ('/message', MessagePage),
     ('/promo', PromoPage),
     ('/mass', MassPage),
+    ('/photo', PhotoPage),
 ], debug=True)
