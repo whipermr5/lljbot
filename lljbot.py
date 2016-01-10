@@ -667,28 +667,28 @@ class MassPage(webapp2.RequestHandler):
         taskqueue.add(url='/mass')
 
     def post(self):
-        def queue_photo(user, uid):
-            taskqueue.add(url='/photo', payload=uid)
-            logging.info(LOG_ENQUEUED.format('photo', uid, user.get_description()))
+        # def queue_photo(user, uid):
+        #     taskqueue.add(url='/photo', payload=uid)
+        #     logging.info(LOG_ENQUEUED.format('photo', uid, user.get_description()))
 
-        try:
-            query = User.all()
-            for user in query.run(batch_size=3000):
-                uid = str(user.get_uid())
-                name = user.first_name.encode('utf-8', 'ignore').strip()
-                if user.is_group():
-                    mass_msg = 'Merry Christmas, friends in {}!'.format(name)
-                else:
-                    mass_msg = 'Merry Christmas, {}!'.format(name)
-                mass_msg += ' ' + u'\U0001F389\U0001F384\U0001F381'.encode('utf-8', 'ignore') + \
-                            '\nGod sent Jesus, the greatest gift, because of you!'
+        # try:
+        #     query = User.all()
+        #     for user in query.run(batch_size=3000):
+        #         uid = str(user.get_uid())
+        #         name = user.first_name.encode('utf-8', 'ignore').strip()
+        #         if user.is_group():
+        #             mass_msg = 'Merry Christmas, friends in {}!'.format(name)
+        #         else:
+        #             mass_msg = 'Merry Christmas, {}!'.format(name)
+        #         mass_msg += ' ' + u'\U0001F389\U0001F384\U0001F381'.encode('utf-8', 'ignore') + \
+        #                     '\nGod sent Jesus, the greatest gift, because of you!'
 
-                send_message(user, mass_msg, msg_type='mass')
-                queue_photo(user, uid)
+        #         send_message(user, mass_msg, msg_type='mass')
+        #         queue_photo(user, uid)
 
-        except Exception as e:
-            logging.error(e)
-        #pass
+        # except Exception as e:
+        #     logging.error(e)
+        pass
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
