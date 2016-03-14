@@ -37,6 +37,7 @@ def get_devo(delta=0):
             num = '_' + strip_markdown(line[:idx]).rstrip('.') + '_'
             rest_of_line = strip_markdown(line[idx:]).strip()
             passage += '{} {}\n'.format(num, rest_of_line)
+        passage = passage.strip()
 
         ref_soup = soup.select_one('.main_body2')
         for tag in ref_soup.select('b'):
