@@ -6,10 +6,15 @@ import textwrap
 from google.appengine.api import urlfetch, urlfetch_errors, taskqueue
 from google.appengine.ext import db
 from datetime import datetime, timedelta
+from bs4 import BeautifulSoup
 
 def get_devo(delta=0):
-    date = (datetime.utcnow() + timedelta(hours=8, days=delta)).strftime('%Y-%m-%d')
-    devo_url = 'http://www.duranno.com/livinglife/qt/reload_default.asp?OD=' + date
+    def strip_markdown(string):
+        return string.replace('*', ' ').replace('_', ' ')
+
+    today_date = datetime.utcnow() + timedelta(hours=8, days=delta)
+    date_url = today_date.strftime('%Y-%m-%d')
+    devo_url = 'http://qt.swim.org/user_dir/living/user_print_web.php?edit_all=' + date_url
 
     try:
         result = urlfetch.fetch(devo_url, deadline=10)
@@ -17,81 +22,133 @@ def get_devo(delta=0):
         logging.warning('Error fetching devo:\n' + str(e))
         return None
 
-    content = result.content.decode('cp949', 'ignore')
+    try:
+        html = result.content
+        soup = BeautifulSoup(html, 'lxml')
 
-    h = HTMLParser.HTMLParser()
+        date = today_date.strftime('%b %-d, %Y ({})').format(today_date.strftime('%a').upper())
+        heading = strip_markdown(soup.select_one('.main_title').text).strip()
+        verse = strip_markdown(soup.select_one('.bible_no').text).lstrip('[ ').rstrip(' ]')
 
-    def prep_str(string):
-        string = string.replace('<br>', '\n')
-        return h.unescape(string).strip()
+        lines = soup.select_one('.main_body').text.splitlines()
+        passage = ''
+        for line in lines:
+            idx = line.find(' ')
+            num = '_' + strip_markdown(line[:idx]).rstrip('.') + '_'
+            rest_of_line = strip_markdown(line[idx:]).strip()
+            passage += '{} {}\n'.format(num, rest_of_line)
 
-    def prep_passage(string):
-        result = ''
-        first = string.find('<!-- bible verse and text -->')
-        string = string[first:]
-        while '<!-- bible verse and text -->' in string:
-            start = string.find('<div class="listTxt">') + 21
-            end = string.find('</div>', start)
-            num = '_' + prep_str(string[start:end]) + '_'
-            start = string.find('<div class="listCon">') + 21
-            end = string.find('</div>', start)
-            text = prep_str(string[start:end])
-            result += num + ' ' + strip_markdown(text) + '\n'
-            string = string[end:]
-        return result.strip()
+        ref_soup = soup.select_one('.main_body2')
+        for tag in ref_soup.select('b'):
+            text = strip_markdown(tag.text).strip()
+            tag.string = '*' + text + '*'
+        reflection = ref_soup.text.strip() + '\n\n'
+        reflection += strip_markdown(soup.select_one('.main_body3').text).strip()
 
-    def strip_markdown(string):
-        return string.replace('*', ' ').replace('_', ' ')
+        prayer = strip_markdown(soup.select('.main_body2')[1].text).strip()
 
-    def get_remote_date(content):
-        start = content.find('var videoNowDate = "') + 20
-        return content[start:start + 10]
+        daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
 
-    if delta != 0 and get_remote_date(content) != date:
+        devo = u'\U0001F4C5' + ' ' + daynames[delta + 1] + ' QT - _' + date + '_\n\n' + \
+               '*' + heading + '*\n' + verse + '\n\n' + \
+               u'\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + passage + '\n\n' + \
+               u'\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
+               u'\U0001F64F' + ' *Prayer*\n\n' + prayer
+        return devo
+
+    except:
         if delta == -1:
             return 'Sorry, the LLJ website is no longer hosting yesterday\'s material.'
+        elif delta == 0:
+            return 'Sorry, the LLJ website does not have today\'s material yet.'
         else:
             return 'Sorry, the LLJ website hasn\'t made tomorrow\'s material available yet.'
 
-    title_start = content.find('<!-- today QT -->')
-    title_end = content.find('<!-- bible words -->')
-    title = prep_str(content[title_start:title_end])
-    start = title.find('<div class="today_m">') + 21
-    end = title.find('</div>', start)
-    date = strip_markdown(prep_str(title[start:end]))
-    start = title.find('<div class="title">') + 59
-    end = title.find('</a>', start)
-    heading = strip_markdown(prep_str(title[start:end]))
-    start = title.find('<div class="sub_title">') + 23
-    end = title.find('</div>', start)
-    verse = strip_markdown(prep_str(title[start:end]))
+# def get_devo_old(delta=0):
+#     date = (datetime.utcnow() + timedelta(hours=8, days=delta)).strftime('%Y-%m-%d')
+#     devo_url = 'http://www.duranno.com/livinglife/qt/reload_default.asp?OD=' + date
 
-    passage_start = title_end
-    passage_end = content.find('<!-- Reflection-->')
-    passage = prep_passage(content[passage_start:passage_end])
+#     try:
+#         result = urlfetch.fetch(devo_url, deadline=10)
+#     except urlfetch_errors.Error as e:
+#         logging.warning('Error fetching devo:\n' + str(e))
+#         return None
 
-    reflection_start = passage_end
-    reflection_end = content.find('<!--  Letter to God -->')
-    reflection = content[reflection_start:reflection_end]
-    start = reflection.find('<div class="con">') + 17
-    end = reflection.find('</div>', start)
-    reflection = strip_markdown(prep_str(reflection[start:end]))
+#     content = result.content.decode('cp949', 'ignore')
 
-    prayer_start = reflection_end
-    prayer_end = content.find('<!-- Share SNS -->')
-    prayer = content[prayer_start:prayer_end]
-    start = prayer.find('<div class="con" style="padding-top:25px;">') + 43
-    end = prayer.find('</div>', start)
-    prayer = strip_markdown(prep_str(prayer[start:end]))
+#     h = HTMLParser.HTMLParser()
 
-    daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
+#     def prep_str(string):
+#         string = string.replace('<br>', '\n')
+#         return h.unescape(string).strip()
 
-    devo = u'\U0001F4C5' + ' ' + daynames[delta + 1] + ' QT - _' + date + '_\n\n' + \
-           '*' + heading + '*\n' + verse + '\n\n' + \
-           u'\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + passage + '\n\n' + \
-           u'\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
-           u'\U0001F64F' + ' *Prayer*\n\n' + prayer
-    return devo
+#     def prep_passage(string):
+#         result = ''
+#         first = string.find('<!-- bible verse and text -->')
+#         string = string[first:]
+#         while '<!-- bible verse and text -->' in string:
+#             start = string.find('<div class="listTxt">') + 21
+#             end = string.find('</div>', start)
+#             num = '_' + prep_str(string[start:end]) + '_'
+#             start = string.find('<div class="listCon">') + 21
+#             end = string.find('</div>', start)
+#             text = prep_str(string[start:end])
+#             result += num + ' ' + strip_markdown(text) + '\n'
+#             string = string[end:]
+#         return result.strip()
+
+#     def strip_markdown(string):
+#         return string.replace('*', ' ').replace('_', ' ')
+
+#     def get_remote_date(content):
+#         start = content.find('var videoNowDate = "') + 20
+#         return content[start:start + 10]
+
+#     if delta != 0 and get_remote_date(content) != date:
+#         if delta == -1:
+#             return 'Sorry, the LLJ website is no longer hosting yesterday\'s material.'
+#         else:
+#             return 'Sorry, the LLJ website hasn\'t made tomorrow\'s material available yet.'
+
+#     title_start = content.find('<!-- today QT -->')
+#     title_end = content.find('<!-- bible words -->')
+#     title = prep_str(content[title_start:title_end])
+#     start = title.find('<div class="today_m">') + 21
+#     end = title.find('</div>', start)
+#     date = strip_markdown(prep_str(title[start:end]))
+#     start = title.find('<div class="title">') + 59
+#     end = title.find('</a>', start)
+#     heading = strip_markdown(prep_str(title[start:end]))
+#     start = title.find('<div class="sub_title">') + 23
+#     end = title.find('</div>', start)
+#     verse = strip_markdown(prep_str(title[start:end]))
+
+#     passage_start = title_end
+#     passage_end = content.find('<!-- Reflection-->')
+#     passage = prep_passage(content[passage_start:passage_end])
+
+#     reflection_start = passage_end
+#     reflection_end = content.find('<!--  Letter to God -->')
+#     reflection = content[reflection_start:reflection_end]
+#     start = reflection.find('<div class="con">') + 17
+#     end = reflection.find('</div>', start)
+#     reflection = strip_markdown(prep_str(reflection[start:end]))
+
+#     prayer_start = reflection_end
+#     prayer_end = content.find('<!-- Share SNS -->')
+#     prayer = content[prayer_start:prayer_end]
+#     start = prayer.find('<div class="con" style="padding-top:25px;">') + 43
+#     end = prayer.find('</div>', start)
+#     prayer = strip_markdown(prep_str(prayer[start:end]))
+
+#     daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
+
+#     devo = u'\U0001F4C5' + ' ' + daynames[delta + 1] + ' QT - _' + date + '_\n\n' + \
+#            '*' + heading + '*\n' + verse + '\n\n' + \
+#            u'\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + passage + '\n\n' + \
+#            u'\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
+#            u'\U0001F64F' + ' *Prayer*\n\n' + prayer
+#     return devo
 
 from secrets import TOKEN, ADMIN_ID, BOT_ID, BOTFAMILY_HASH
 TELEGRAM_URL = 'https://api.telegram.org/bot' + TOKEN
@@ -583,8 +640,7 @@ class SendPage(webapp2.RequestHandler):
         query.filter('active =', True)
         query.filter('last_auto <', get_today_time())
 
-        # devo = get_devo()
-        devo = 'Sorry, the Duranno website (http://www.duranno.com/livinglife/qt) has not been updated since 13 March. In the meantime, please use http://qt.swim.org/user_dir/living/user_print_web.php to access the devotional material. If the problem persists, LLJ Bot will be updated to use the new source soon. Thank you and sorry for the inconvenience caused!\n\n- LLJ Bot admin'
+        devo = get_devo()
         if devo == None:
             return False
 
