@@ -583,13 +583,14 @@ class SendPage(webapp2.RequestHandler):
         query.filter('active =', True)
         query.filter('last_auto <', get_today_time())
 
-        devo = get_devo()
+        # devo = get_devo()
+        devo = 'Sorry, the Duranno website (http://www.duranno.com/livinglife/qt) has not been updated since 13 March. In the meantime, please use http://qt.swim.org/user_dir/living/user_print_web.php to access the devotional material. If the problem persists, LLJ Bot will be updated to use the new source soon. Thank you and sorry for the inconvenience caused!\n\n- LLJ Bot admin'
         if devo == None:
             return False
 
         try:
             for user in query.run(batch_size=500):
-                send_message(user, devo, msg_type='daily', markdown=True)
+                send_message(user, devo, msg_type='daily', markdown=False)
         except db.Error as e:
             logging.warning(LOG_ERROR_DATASTORE + str(e))
             return False
