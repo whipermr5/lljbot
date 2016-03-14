@@ -646,7 +646,7 @@ class SendPage(webapp2.RequestHandler):
 
         try:
             for user in query.run(batch_size=500):
-                send_message(user, devo, msg_type='daily', markdown=False)
+                send_message(user, devo, msg_type='daily', markdown=True)
         except db.Error as e:
             logging.warning(LOG_ERROR_DATASTORE + str(e))
             return False
