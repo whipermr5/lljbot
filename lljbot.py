@@ -3,6 +3,7 @@ import logging
 import json
 import HTMLParser
 import textwrap
+import scriptures
 from google.appengine.api import urlfetch, urlfetch_errors, taskqueue
 from google.appengine.ext import db
 from datetime import datetime, timedelta
@@ -29,6 +30,7 @@ def get_devo(delta=0):
         date = today_date.strftime('%b %-d, %Y ({})').format(today_date.strftime('%a').upper())
         heading = strip_markdown(soup.select_one('.main_title').text).strip()
         verse = strip_markdown(soup.select_one('.bible_no').text).lstrip('[ ').rstrip(' ]')
+        verse = scriptures.reference_to_string(*scriptures.extract(verse)[0])
 
         lines = soup.select_one('.main_body').text.splitlines()
         passage = ''
