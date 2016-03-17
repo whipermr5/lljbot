@@ -44,7 +44,7 @@ def get_devo(delta=0):
         ref_soup = soup.select_one('.main_body2')
         for tag in ref_soup.select('b'):
             text = strip_markdown(tag.text).strip()
-            tag.string = '*' + text.replace(' ', '\\') + '*'
+            tag.string = '*' + text.replace(' ', '\a') + '*'
         reflection = ref_soup.text.strip() + '\n\n'
         reflection += strip_markdown(soup.select_one('.main_body3').text).strip()
 
@@ -299,7 +299,7 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
     def send_short_message(text, countdown=0):
         build = {
             'chat_id': uid,
-            'text': text.replace('\\', ' ')
+            'text': text.replace('\a', ' ')
         }
 
         if force_reply:
