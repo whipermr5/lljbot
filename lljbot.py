@@ -288,7 +288,7 @@ def update_profile(uid, uname, fname, lname):
         user.put()
         return user
 
-def send_message(user_or_uid, text, msg_type='message', force_reply=False, markdown=False):
+def send_message(user_or_uid, text, msg_type='message', force_reply=False, markdown=False, disable_web_page_preview=False):
     try:
         uid = str(user_or_uid.get_uid())
         user = user_or_uid
@@ -306,7 +306,7 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
             build['reply_markup'] = {'force_reply': True}
         if markdown:
             build['parse_mode'] = 'Markdown'
-        if msg_type == 'promo':
+        if msg_type == 'promo' or disable_web_page_preview:
             build['disable_web_page_preview'] = True
 
         data = json.dumps(build)
@@ -617,7 +617,7 @@ class LljPage(webapp2.RequestHandler):
                 response += self.CMD_LIST_SUB
             response += '\n\n' + self.HELP_LINK
 
-            send_message(user, response)
+            send_message(user, response, disable_web_page_preview=True)
 
         elif is_command('feedback'):
             response = self.FEEDBACK_STRING
