@@ -1,10 +1,10 @@
 import webapp2
 import logging
 import json
-import HTMLParser
+# import HTMLParser
 import textwrap
 import scriptures
-from google.appengine.api import urlfetch, urlfetch_errors, taskqueue
+from google.appengine.api import urlfetch, taskqueue
 from google.appengine.ext import db
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
@@ -19,7 +19,7 @@ def get_devo(delta=0):
 
     try:
         result = urlfetch.fetch(devo_url, deadline=10)
-    except urlfetch_errors.Error as e:
+    except Exception as e:
         logging.warning('Error fetching devo:\n' + str(e))
         return None
 
@@ -73,7 +73,7 @@ def get_devo(delta=0):
 
 #     try:
 #         result = urlfetch.fetch(devo_url, deadline=10)
-#     except urlfetch_errors.Error as e:
+#     except Exception as e:
 #         logging.warning('Error fetching devo:\n' + str(e))
 #         return None
 
@@ -164,7 +164,7 @@ LOG_SENT = '{} {} sent to uid {} ({})'
 LOG_ENQUEUED = 'Enqueued {} to uid {} ({})'
 LOG_DID_NOT_SEND = 'Did not send {} to uid {} ({}): {}'
 LOG_ERROR_SENDING = 'Error sending {} to uid {} ({}):\n{}'
-LOG_ERROR_DATASTORE = 'Error reading from datastore:\n'
+LOG_ERROR_DAILY = 'Error enqueueing dailies:\n'
 LOG_TYPE_FEEDBACK = 'Type: Feedback\n'
 LOG_TYPE_START_NEW = 'Type: Start (new user)'
 LOG_TYPE_START_EXISTING = 'Type: Start (existing user)'
@@ -288,7 +288,8 @@ def update_profile(uid, uname, fname, lname):
         user.put()
         return user
 
-def send_message(user_or_uid, text, msg_type='message', force_reply=False, markdown=False, disable_web_page_preview=False):
+def send_message(user_or_uid, text, msg_type='message', force_reply=False, markdown=False,
+                 disable_web_page_preview=False):
     try:
         uid = str(user_or_uid.get_uid())
         user = user_or_uid
@@ -330,7 +331,7 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
 
         try:
             result = telegram_post(data)
-        except urlfetch_errors.Error as e:
+        except Exception as e:
             logging.warning(LOG_ERROR_SENDING.format(msg_type, uid, user.get_description(), str(e)))
             queue_message()
             return
@@ -389,7 +390,7 @@ def send_typing(uid):
         rpc = urlfetch.create_rpc()
         urlfetch.make_fetch_call(rpc, url=TELEGRAM_URL_CHAT_ACTION, payload=data,
                                  method=urlfetch.POST, headers=JSON_HEADER)
-    except urlfetch_errors.Error:
+    except:
         return
 
 class MainPage(webapp2.RequestHandler):
@@ -650,8 +651,8 @@ class SendPage(webapp2.RequestHandler):
         try:
             for user in query.run(batch_size=500):
                 send_message(user, devo, msg_type='daily', markdown=True)
-        except db.Error as e:
-            logging.warning(LOG_ERROR_DATASTORE + str(e))
+        except Exception as e:
+            logging.warning(LOG_ERROR_DAILY + str(e))
             return False
 
         return True
@@ -693,7 +694,7 @@ class MessagePage(webapp2.RequestHandler):
 
         try:
             result = telegram_post(data, 4)
-        except urlfetch_errors.Error as e:
+        except Exception as e:
             logging.warning(LOG_ERROR_SENDING.format(msg_type, uid, user.get_description(), str(e)))
             logging.debug(data)
             self.abort(502)
@@ -704,29 +705,29 @@ class MessagePage(webapp2.RequestHandler):
             logging.debug(data)
             self.abort(502)
 
-class PhotoPage(webapp2.RequestHandler):
-    def post(self):
-        uid = self.request.body
-        user = get_user(uid)
+# class PhotoPage(webapp2.RequestHandler):
+#     def post(self):
+#         uid = self.request.body
+#         user = get_user(uid)
 
-        build = {
-            'chat_id': uid,
-            'photo': 'AgADBQAD0agxGwgAAcgBjTgu4ZTCQJCCVb4yAARl_44G6ouSJaWxAAIC'
-        }
-        data = json.dumps(build)
+#         build = {
+#             'chat_id': uid,
+#             'photo': 'AgADBQAD0agxGwgAAcgBjTgu4ZTCQJCCVb4yAARl_44G6ouSJaWxAAIC'
+#         }
+#         data = json.dumps(build)
 
-        try:
-            result = telegram_photo(data, 4)
-        except urlfetch_errors.Error as e:
-            logging.warning(LOG_ERROR_SENDING.format('Photo', uid, user.get_description(), str(e)))
-            logging.debug(data)
-            self.abort(502)
+#         try:
+#             result = telegram_photo(data, 4)
+#         except Exception as e:
+#             logging.warning(LOG_ERROR_SENDING.format('Photo', uid, user.get_description(), str(e)))
+#             logging.debug(data)
+#             self.abort(502)
 
-        response = json.loads(result.content)
+#         response = json.loads(result.content)
 
-        if handle_response(response, user, uid, 'photo') == False:
-            logging.debug(data)
-            self.abort(502)
+#         if handle_response(response, user, uid, 'photo') == False:
+#             logging.debug(data)
+#             self.abort(502)
 
 class MassPage(webapp2.RequestHandler):
     def get(self):
@@ -763,5 +764,5 @@ app = webapp2.WSGIApplication([
     ('/message', MessagePage),
     ('/promo', PromoPage),
     ('/mass', MassPage),
-    ('/photo', PhotoPage),
+    # ('/photo', PhotoPage),
 ], debug=True)
