@@ -31,6 +31,11 @@ def get_devo(delta=0):
         heading = strip_markdown(soup.select_one('.main_title').text).strip()
         verse = strip_markdown(soup.select_one('.bible_no').text).lstrip('[ ').rstrip(' ]')
         verse = scriptures.reference_to_string(*scriptures.extract(verse)[0])
+        first_word = verse.partition(' ')[0]
+        if first_word in ('I', 'II', 'III'):
+            verse = str(len(first_word)) + verse.lstrip('I')
+        elif first_word == 'Revelation':
+            verse = first_word + verse[26:]
 
         lines = soup.select_one('.main_body').text.splitlines()
         passage = ''
