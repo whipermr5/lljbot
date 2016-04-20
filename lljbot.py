@@ -1,7 +1,7 @@
 import webapp2
 import logging
 import json
-# import HTMLParser
+import HTMLParser
 import textwrap
 import scriptures
 from google.appengine.api import urlfetch, taskqueue
@@ -72,91 +72,91 @@ def get_devo(delta=0):
         else:
             return 'Sorry, the LLJ website hasn\'t made tomorrow\'s material available yet.'
 
-# def get_devo_old(delta=0):
-#     date = (datetime.utcnow() + timedelta(hours=8, days=delta)).strftime('%Y-%m-%d')
-#     devo_url = 'http://www.duranno.com/livinglife/qt/reload_default.asp?OD=' + date
+def get_devo_old(delta=0):
+    date = (datetime.utcnow() + timedelta(hours=8, days=delta)).strftime('%Y-%m-%d')
+    devo_url = 'http://www.duranno.com/livinglife/qt/reload_default.asp?OD=' + date
 
-#     try:
-#         result = urlfetch.fetch(devo_url, deadline=10)
-#     except Exception as e:
-#         logging.warning('Error fetching devo:\n' + str(e))
-#         return None
+    try:
+        result = urlfetch.fetch(devo_url, deadline=10)
+    except Exception as e:
+        logging.warning('Error fetching devo:\n' + str(e))
+        return None
 
-#     content = result.content.decode('cp949', 'ignore')
+    content = result.content.decode('cp949', 'ignore')
 
-#     h = HTMLParser.HTMLParser()
+    h = HTMLParser.HTMLParser()
 
-#     def prep_str(string):
-#         string = string.replace('<br>', '\n')
-#         return h.unescape(string).strip()
+    def prep_str(string):
+        string = string.replace('<br>', '\n')
+        return h.unescape(string).strip()
 
-#     def prep_passage(string):
-#         result = ''
-#         first = string.find('<!-- bible verse and text -->')
-#         string = string[first:]
-#         while '<!-- bible verse and text -->' in string:
-#             start = string.find('<div class="listTxt">') + 21
-#             end = string.find('</div>', start)
-#             num = '_' + prep_str(string[start:end]) + '_'
-#             start = string.find('<div class="listCon">') + 21
-#             end = string.find('</div>', start)
-#             text = prep_str(string[start:end])
-#             result += num + ' ' + strip_markdown(text) + '\n'
-#             string = string[end:]
-#         return result.strip()
+    def prep_passage(string):
+        result = ''
+        first = string.find('<!-- bible verse and text -->')
+        string = string[first:]
+        while '<!-- bible verse and text -->' in string:
+            start = string.find('<div class="listTxt">') + 21
+            end = string.find('</div>', start)
+            num = '_' + prep_str(string[start:end]) + '_'
+            start = string.find('<div class="listCon">') + 21
+            end = string.find('</div>', start)
+            text = prep_str(string[start:end])
+            result += num + ' ' + strip_markdown(text) + '\n'
+            string = string[end:]
+        return result.strip()
 
-#     def strip_markdown(string):
-#         return string.replace('*', ' ').replace('_', ' ')
+    def strip_markdown(string):
+        return string.replace('*', ' ').replace('_', ' ')
 
-#     def get_remote_date(content):
-#         start = content.find('var videoNowDate = "') + 20
-#         return content[start:start + 10]
+    def get_remote_date(content):
+        start = content.find('var videoNowDate = "') + 20
+        return content[start:start + 10]
 
-#     if delta != 0 and get_remote_date(content) != date:
-#         if delta == -1:
-#             return 'Sorry, the LLJ website is no longer hosting yesterday\'s material.'
-#         else:
-#             return 'Sorry, the LLJ website hasn\'t made tomorrow\'s material available yet.'
+    if delta != 0 and get_remote_date(content) != date:
+        if delta == -1:
+            return 'Sorry, the LLJ website is no longer hosting yesterday\'s material.'
+        else:
+            return 'Sorry, the LLJ website hasn\'t made tomorrow\'s material available yet.'
 
-#     title_start = content.find('<!-- today QT -->')
-#     title_end = content.find('<!-- bible words -->')
-#     title = prep_str(content[title_start:title_end])
-#     start = title.find('<div class="today_m">') + 21
-#     end = title.find('</div>', start)
-#     date = strip_markdown(prep_str(title[start:end]))
-#     start = title.find('<div class="title">') + 59
-#     end = title.find('</a>', start)
-#     heading = strip_markdown(prep_str(title[start:end]))
-#     start = title.find('<div class="sub_title">') + 23
-#     end = title.find('</div>', start)
-#     verse = strip_markdown(prep_str(title[start:end]))
+    title_start = content.find('<!-- today QT -->')
+    title_end = content.find('<!-- bible words -->')
+    title = prep_str(content[title_start:title_end])
+    start = title.find('<div class="today_m">') + 21
+    end = title.find('</div>', start)
+    date = strip_markdown(prep_str(title[start:end]))
+    start = title.find('<div class="title">') + 59
+    end = title.find('</a>', start)
+    heading = strip_markdown(prep_str(title[start:end]))
+    start = title.find('<div class="sub_title">') + 23
+    end = title.find('</div>', start)
+    verse = strip_markdown(prep_str(title[start:end]))
 
-#     passage_start = title_end
-#     passage_end = content.find('<!-- Reflection-->')
-#     passage = prep_passage(content[passage_start:passage_end])
+    passage_start = title_end
+    passage_end = content.find('<!-- Reflection-->')
+    passage = prep_passage(content[passage_start:passage_end])
 
-#     reflection_start = passage_end
-#     reflection_end = content.find('<!--  Letter to God -->')
-#     reflection = content[reflection_start:reflection_end]
-#     start = reflection.find('<div class="con">') + 17
-#     end = reflection.find('</div>', start)
-#     reflection = strip_markdown(prep_str(reflection[start:end]))
+    reflection_start = passage_end
+    reflection_end = content.find('<!--  Letter to God -->')
+    reflection = content[reflection_start:reflection_end]
+    start = reflection.find('<div class="con">') + 17
+    end = reflection.find('</div>', start)
+    reflection = strip_markdown(prep_str(reflection[start:end]))
 
-#     prayer_start = reflection_end
-#     prayer_end = content.find('<!-- Share SNS -->')
-#     prayer = content[prayer_start:prayer_end]
-#     start = prayer.find('<div class="con" style="padding-top:25px;">') + 43
-#     end = prayer.find('</div>', start)
-#     prayer = strip_markdown(prep_str(prayer[start:end]))
+    prayer_start = reflection_end
+    prayer_end = content.find('<!-- Share SNS -->')
+    prayer = content[prayer_start:prayer_end]
+    start = prayer.find('<div class="con" style="padding-top:25px;">') + 43
+    end = prayer.find('</div>', start)
+    prayer = strip_markdown(prep_str(prayer[start:end]))
 
-#     daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
+    daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
 
-#     devo = u'\U0001F4C5' + ' ' + daynames[delta + 1] + ' QT - _' + date + '_\n\n' + \
-#            '*' + heading + '*\n' + verse + '\n\n' + \
-#            u'\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + passage + '\n\n' + \
-#            u'\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
-#            u'\U0001F64F' + ' *Prayer*\n\n' + prayer
-#     return devo
+    devo = u'\U0001F4C5' + ' ' + daynames[delta + 1] + ' QT - _' + date + '_\n\n' + \
+           '*' + heading + '*\n' + verse + '\n\n' + \
+           u'\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + passage + '\n\n' + \
+           u'\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
+           u'\U0001F64F' + ' *Prayer*\n\n' + prayer
+    return devo
 
 from secrets import TOKEN, ADMIN_ID, BOT_ID, BOTFAMILY_HASH
 TELEGRAM_URL = 'https://api.telegram.org/bot' + TOKEN
@@ -568,6 +568,10 @@ class LljPage(webapp2.RequestHandler):
             response = get_devo()
             if response == None:
                 response = self.REMOTE_ERROR
+            elif response.startswith('Sorry'):
+                response = get_devo_old()
+                if response == None:
+                    response = self.REMOTE_ERROR
 
             send_message(user, response, markdown=True)
 
@@ -576,6 +580,10 @@ class LljPage(webapp2.RequestHandler):
             response = get_devo(-1)
             if response == None:
                 response = self.REMOTE_ERROR
+            elif response.startswith('Sorry'):
+                response = get_devo_old()
+                if response == None:
+                    response = self.REMOTE_ERROR
 
             send_message(user, response, markdown=True)
 
@@ -584,6 +592,10 @@ class LljPage(webapp2.RequestHandler):
             response = get_devo(1)
             if response == None:
                 response = self.REMOTE_ERROR
+            elif response.startswith('Sorry'):
+                response = get_devo_old()
+                if response == None:
+                    response = self.REMOTE_ERROR
 
             send_message(user, response, markdown=True)
 
@@ -652,6 +664,10 @@ class SendPage(webapp2.RequestHandler):
         devo = get_devo()
         if devo == None:
             return False
+        elif devo.startswith('Sorry'):
+            devo = get_devo_old()
+            if devo == None:
+                return False
 
         try:
             for user in query.run(batch_size=500):
