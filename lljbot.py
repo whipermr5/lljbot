@@ -581,7 +581,7 @@ class LljPage(webapp2.RequestHandler):
             if response == None:
                 response = self.REMOTE_ERROR
             elif response.startswith('Sorry'):
-                response = get_devo_old()
+                response = get_devo_old(-1)
                 if response == None:
                     response = self.REMOTE_ERROR
 
@@ -593,7 +593,7 @@ class LljPage(webapp2.RequestHandler):
             if response == None:
                 response = self.REMOTE_ERROR
             elif response.startswith('Sorry'):
-                response = get_devo_old()
+                response = get_devo_old(1)
                 if response == None:
                     response = self.REMOTE_ERROR
 
