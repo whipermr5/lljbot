@@ -9,7 +9,7 @@ handlers:
   script: admin.app
   login: admin
 
-- url: /(send|message|promo|mass|photo)
+- url: /(send|message|promo|mass|photo|verify)
   script: lljbot.app
   login: admin
 
