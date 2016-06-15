@@ -175,6 +175,7 @@ LOG_TYPE_FEEDBACK = 'Type: Feedback\n'
 LOG_TYPE_START_NEW = 'Type: Start (new user)'
 LOG_TYPE_START_EXISTING = 'Type: Start (existing user)'
 LOG_TYPE_NON_TEXT = 'Type: Non-text'
+LOG_TYPE_NON_MESSAGE = 'Type: Non-message'
 LOG_TYPE_COMMAND = 'Type: Command\n'
 LOG_UNRECOGNISED = 'Unrecognised command'
 LOG_USER_MIGRATED = 'User {} migrated to uid {} ({})'
@@ -462,6 +463,10 @@ class LljPage(webapp2.RequestHandler):
         logging.debug(self.request.body)
 
         msg = data.get('message')
+        if not msg:
+            logging.info(LOG_TYPE_NON_MESSAGE)
+            return
+
         msg_chat = msg.get('chat')
         msg_from = msg.get('from')
 
