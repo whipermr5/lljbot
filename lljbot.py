@@ -188,13 +188,16 @@ RECOGNISED_ERROR_MIGRATE = 'Bad Request: group chat is migrated to a supergroup 
 RECOGNISED_ERRORS = ('PEER_ID_INVALID',
                      'Bot was blocked by the user',
                      'Forbidden: user is deleted',
+                     'Forbidden: user is deactivated',
                      'Forbidden: User is deactivated',
                      'Forbidden: Bot was blocked by the user',
                      'Forbidden: bot was kicked from the group chat',
                      'Forbidden: bot was kicked from the channel chat',
                      'Forbidden: bot was kicked from the supergroup chat',
                      'Forbidden: bot is not a member of the supergroup chat',
+                     'Forbidden: Bot can\'t initiate conversation with a user',
                      'Bad Request: chat not found',
+                     'Bad Request: PEER_ID_INVALID',
                      'Bad Request: group chat was deactivated',
                      RECOGNISED_ERROR_MIGRATE)
 
@@ -379,6 +382,11 @@ def handle_response(response, user, uid, msg_type):
 
     else:
         error_description = str(response.get('description'))
+        if error_description.startswith(RECOGNISED_ERROR_PARSE):
+            logging.warning(LOG_ERROR_SENDING.format(msg_type, uid, user.get_description(),
+                                                     error_description))
+            return True
+
         if error_description not in RECOGNISED_ERRORS:
             logging.warning(LOG_ERROR_SENDING.format(msg_type, uid, user.get_description(),
                                                      error_description))
@@ -773,24 +781,20 @@ class MassPage(webapp2.RequestHandler):
         taskqueue.add(url='/mass')
 
     def post(self):
-        # def queue_photo(user, uid):
-        #     taskqueue.add(url='/photo', payload=uid)
-        #     logging.info(LOG_ENQUEUED.format('photo', uid, user.get_description()))
-
         # try:
         #     query = User.all()
         #     for user in query.run(batch_size=3000):
         #         uid = str(user.get_uid())
         #         name = user.first_name.encode('utf-8', 'ignore').strip()
+        #         mass_msg = '_"The Son of God became a man to enable men to become sons of God." - C.S. Lewis_\n\n'
         #         if user.is_group():
-        #             mass_msg = 'Merry Christmas, friends in {}!'.format(name)
+        #             mass_msg += 'Merry Christmas, friends in {}!'.format(name)
         #         else:
-        #             mass_msg = 'Merry Christmas, {}!'.format(name)
+        #             mass_msg += 'Merry Christmas, {}!'.format(name)
         #         mass_msg += ' ' + u'\U0001F389\U0001F384\U0001F381'.encode('utf-8', 'ignore') + \
-        #                     '\nGod sent Jesus, the greatest gift, because of you!'
+        #                     ' Jesus is the reason for the season, and _you_ are the reason why Jesus came!'
 
-        #         send_message(user, mass_msg, msg_type='mass')
-        #         queue_photo(user, uid)
+        #         send_message(user, mass_msg, msg_type='mass', markdown=True)
 
         # except Exception as e:
         #     logging.error(e)
