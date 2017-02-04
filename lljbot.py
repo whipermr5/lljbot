@@ -9,10 +9,24 @@ from google.appengine.ext import db
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 
-def get_devo(delta=0):
-    def strip_markdown(string):
-        return string.replace('*', ' ').replace('_', ' ')
+def strip_markdown(string):
+    return string.replace('*', ' ').replace('_', ' ').replace('`', '\'')
 
+def to_sup(text):
+    sups = {u'0': u'\u2070',
+            u'1': u'\xb9',
+            u'2': u'\xb2',
+            u'3': u'\xb3',
+            u'4': u'\u2074',
+            u'5': u'\u2075',
+            u'6': u'\u2076',
+            u'7': u'\u2077',
+            u'8': u'\u2078',
+            u'9': u'\u2079',
+            u'-': u'\u207b'}
+    return ''.join(sups.get(char, char) for char in text)
+
+def get_devo(delta=0):
     today_date = datetime.utcnow() + timedelta(hours=8, days=delta)
     date_url = today_date.strftime('%Y-%m-%d')
     devo_url = 'http://qt.swim.org/user_dir/living/user_print_web.php?edit_all=' + date_url
@@ -41,9 +55,9 @@ def get_devo(delta=0):
         passage = ''
         for line in lines:
             idx = line.find(' ')
-            num = '_' + strip_markdown(line[:idx]).rstrip('.') + '_'
+            num = to_sup(strip_markdown(line[:idx]).rstrip('.'))
             rest_of_line = strip_markdown(line[idx:]).strip()
-            passage += '{} {}\n'.format(num, rest_of_line)
+            passage += num + ' ' + rest_of_line + '\n'
         passage = passage.strip()
 
         ref_soup = soup.select_one('.main_body2')
@@ -97,16 +111,13 @@ def get_devo_old(delta=0):
         while '<!-- bible verse and text -->' in string:
             start = string.find('<div class="listTxt">') + 21
             end = string.find('</div>', start)
-            num = '_' + prep_str(string[start:end]) + '_'
+            num = to_sup(prep_str(string[start:end]))
             start = string.find('<div class="listCon">') + 21
             end = string.find('</div>', start)
             text = prep_str(string[start:end])
             result += num + ' ' + strip_markdown(text) + '\n'
             string = string[end:]
         return result.strip()
-
-    def strip_markdown(string):
-        return string.replace('*', ' ').replace('_', ' ')
 
     def get_remote_date(content):
         start = content.find('var videoNowDate = "') + 20
