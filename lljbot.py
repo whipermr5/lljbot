@@ -26,6 +26,25 @@ def to_sup(text):
             u'-': u'\u207b'}
     return ''.join(sups.get(char, char) for char in text)
 
+def to_chunks(text):
+    lines = [line.strip() for line in text.strip().splitlines()]
+    chunks = []
+    current_chunk = None
+    for line in lines:
+        if line:
+            if current_chunk:
+                current_chunk += '\n' + line
+            else:
+                current_chunk = line
+        else:
+            if current_chunk:
+                chunks.append(current_chunk)
+                current_chunk = None
+            else:
+                continue
+    chunks.append(current_chunk)
+    return chunks
+
 def get_devo(delta=0):
     today_date = datetime.utcnow() + timedelta(hours=8, days=delta)
     date_url = today_date.strftime('%Y-%m-%d')
@@ -64,8 +83,15 @@ def get_devo(delta=0):
         for tag in ref_soup.select('b'):
             text = strip_markdown(tag.text).strip()
             tag.string = '*' + text.replace(' ', '\a') + '*'
-        reflection = ref_soup.text.strip() + '\n\n'
-        reflection += strip_markdown(soup.select_one('.main_body3').text).strip()
+        reflection = ref_soup.text.strip()
+        application = strip_markdown(soup.select_one('.main_body3').text).strip()
+        reflection_chunks = to_chunks(reflection)
+        application_chunks = to_chunks(application)
+        if len(reflection_chunks) == len(application_chunks):
+            chunks = [val for pair in zip(reflection_chunks, application_chunks) for val in pair]
+        else:
+            chunks = reflection_chunks + application_chunks
+        reflection = '\n\n'.join(chunks)
 
         prayer = strip_markdown(soup.select('.main_body2')[1].text).strip()
 
