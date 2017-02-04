@@ -88,6 +88,7 @@ def get_devo(delta=0):
         reflection_chunks = to_chunks(reflection)
         application_chunks = to_chunks(application)
         if len(reflection_chunks) == len(application_chunks):
+            application_chunks = [line.lstrip('-').lstrip() for line in application_chunks]
             chunks = [val for pair in zip(reflection_chunks, application_chunks) for val in pair]
         else:
             chunks = reflection_chunks + application_chunks
