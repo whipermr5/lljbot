@@ -12,6 +12,13 @@ from bs4 import BeautifulSoup
 def strip_markdown(string):
     return string.replace('*', ' ').replace('_', ' ').replace('`', '\'')
 
+def make_first_line_bold(text):
+    text_split = text.split('\n', 1)
+    output = '*' + text_split[0].strip() + '*'
+    if len(text_split) > 1:
+        output += '\n' + strip_markdown(text_split[1].strip())
+    return output
+
 def to_sup(text):
     sups = {u'0': u'\u2070',
             u'1': u'\xb9',
@@ -179,6 +186,11 @@ def get_devo_old(delta=0):
     start = reflection.find('<div class="con">') + 17
     end = reflection.find('</div>', start)
     reflection = strip_markdown(prep_str(reflection[start:end]))
+    reflection_chunks = to_chunks(reflection)
+    if len(reflection_chunks) % 2 == 0:
+        for i in range(0, len(reflection_chunks), 2):
+            reflection_chunks[i] = make_first_line_bold(reflection_chunks[i])
+        reflection = '\n\n'.join(reflection_chunks)
 
     prayer_start = reflection_end
     prayer_end = content.find('<!-- Share SNS -->')
