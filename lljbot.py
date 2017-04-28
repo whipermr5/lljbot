@@ -14,7 +14,7 @@ def strip_markdown(string):
 
 def make_first_line_bold(text):
     text_split = text.split('\n', 1)
-    output = '*' + text_split[0].strip() + '*'
+    output = '*' + text_split[0].strip().replace(' ', '\a') + '*'
     if len(text_split) > 1:
         output += '\n' + strip_markdown(text_split[1].strip())
     return output
