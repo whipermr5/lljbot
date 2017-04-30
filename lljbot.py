@@ -818,7 +818,8 @@ class MessagePage(webapp2.RequestHandler):
 #         try:
 #             result = telegram_photo(data, 4)
 #         except Exception as e:
-#             logging.warning(LOG_ERROR_SENDING.format('Photo', uid, user.get_description(), str(e)))
+#             logging.warning(LOG_ERROR_SENDING.format('Photo', uid, user.get_description(),
+#                                                      str(e)))
 #             logging.debug(data)
 #             self.abort(502)
 
@@ -838,13 +839,15 @@ class MassPage(webapp2.RequestHandler):
         #     for user in query.run(batch_size=3000):
         #         uid = str(user.get_uid())
         #         name = user.first_name.encode('utf-8', 'ignore').strip()
-        #         mass_msg = '_"The Son of God became a man to enable men to become sons of God." - C.S. Lewis_\n\n'
+        #         mass_msg = '_"The Son of God became a man to enable men to become sons of God' + \
+        #                    '." - C.S. Lewis_\n\n'
         #         if user.is_group():
         #             mass_msg += 'Merry Christmas, friends in {}!'.format(name)
         #         else:
         #             mass_msg += 'Merry Christmas, {}!'.format(name)
         #         mass_msg += ' ' + u'\U0001F389\U0001F384\U0001F381'.encode('utf-8', 'ignore') + \
-        #                     ' Jesus is the reason for the season, and _you_ are the reason why Jesus came!'
+        #                     ' Jesus is the reason for the season, and _you_ are the reason' + \
+        #                     ' why Jesus came!'
 
         #         send_message(user, mass_msg, msg_type='mass', markdown=True)
 
@@ -890,7 +893,8 @@ class VerifyPage(webapp2.RequestHandler):
                 user.delete()
                 logging.info(LOG_USER_DELETED.format(uid, user_description))
             else:
-                logging.warning(LOG_USER_UNREACHABLE.format(uid, user.get_description(), error_description))
+                logging.warning(LOG_USER_UNREACHABLE.format(uid, user.get_description(),
+                                                            error_description))
                 self.abort(502)
 
 app = webapp2.WSGIApplication([
