@@ -58,7 +58,7 @@ def get_devo(delta=0):
     devo_url = 'http://qt.swim.org/user_dir/living/user_print_web.php?edit_all=' + date_url
 
     try:
-        result = urlfetch.fetch(devo_url, deadline=10)
+        result = urlfetch.fetch(devo_url, deadline=30)
     except Exception as e:
         logging.warning('Error fetching devo:\n' + str(e))
         return None
@@ -125,7 +125,7 @@ def get_devo_old(delta=0):
     devo_url = 'http://www.duranno.com/livinglife/qt/reload_default.asp?OD=' + date
 
     try:
-        result = urlfetch.fetch(devo_url, deadline=10)
+        result = urlfetch.fetch(devo_url, deadline=30)
     except Exception as e:
         logging.warning('Error fetching devo:\n' + str(e))
         return None
@@ -253,16 +253,16 @@ RECOGNISED_ERRORS = ('PEER_ID_INVALID',
                      'Bad Request: group chat was deactivated',
                      RECOGNISED_ERROR_MIGRATE)
 
-def telegram_post(data, deadline=3):
+def telegram_post(data, deadline=10):
     return urlfetch.fetch(url=TELEGRAM_URL_SEND, payload=data, method=urlfetch.POST,
                           headers=JSON_HEADER, deadline=deadline)
 
-def telegram_query(uid, deadline=3):
+def telegram_query(uid, deadline=10):
     data = json.dumps({'chat_id': uid, 'action': 'typing'})
     return urlfetch.fetch(url=TELEGRAM_URL_CHAT_ACTION, payload=data, method=urlfetch.POST,
                           headers=JSON_HEADER, deadline=deadline)
 
-def telegram_photo(data, deadline=3):
+def telegram_photo(data, deadline=10):
     return urlfetch.fetch(url=TELEGRAM_URL_SEND_PHOTO, payload=data, method=urlfetch.POST,
                           headers=JSON_HEADER, deadline=deadline)
 
