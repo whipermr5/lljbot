@@ -748,7 +748,7 @@ class SendPage(webapp2.RequestHandler):
                 return False
 
         try:
-            for user in query.run(batch_size=500):
+            for user in query.run(batch_size=5000):
                 send_message(user, devo, msg_type='daily', markdown=True)
         except Exception as e:
             logging.warning(LOG_ERROR_DAILY + str(e))
