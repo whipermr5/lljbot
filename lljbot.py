@@ -134,6 +134,9 @@ def get_devo_old(delta=0):
 
     h = HTMLParser.HTMLParser()
 
+    def get_text(html):
+        return BeautifulSoup(html, 'lxml').text
+
     def prep_str(string):
         string = string.replace('<br>', '\n')
         return h.unescape(string).strip()
@@ -148,7 +151,7 @@ def get_devo_old(delta=0):
             num = to_sup(prep_str(string[start:end]))
             start = string.find('<div class="listCon">') + 21
             end = string.find('</div>', start)
-            text = prep_str(string[start:end])
+            text = get_text(prep_str(string[start:end]))
             result += num + ' ' + strip_markdown(text) + '\n'
             string = string[end:]
         return result.strip()
