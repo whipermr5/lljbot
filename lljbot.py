@@ -68,8 +68,14 @@ def get_devo(delta=0):
         soup = BeautifulSoup(html, 'lxml')
 
         date = today_date.strftime('%b %-d, %Y ({})').format(today_date.strftime('%a').upper())
-        heading = strip_markdown(soup.select_one('.main_title').text).strip()
-        verse = strip_markdown(soup.select_one('.bible_no').text).lstrip('[ ').rstrip(' ]')
+
+        heading_soup = soup.find('td', {'align': 'center', 'class': 'padding'})
+        heading_soup.find('a', {'class': 'mobile-button'}).decompose()
+        heading = strip_markdown(heading_soup.text).strip()
+
+        bodies = soup.find_all('td', {'align': 'left', 'class': 'padding'})
+
+        verse = strip_markdown(bodies[0].find('strong').text)
         verse = scriptures.reference_to_string(*scriptures.extract(verse)[0])
         first_word = verse.partition(' ')[0]
         if first_word in ('I', 'II', 'III'):
@@ -77,21 +83,22 @@ def get_devo(delta=0):
         elif first_word == 'Revelation':
             verse = first_word + verse[26:]
 
-        lines = soup.select_one('.main_body').text.splitlines()
+        lines = map(lambda l: l.text.strip(), bodies[0].find('div').find_all('div'))
         passage = ''
         for line in lines:
+            if not line:
+                continue
             idx = line.find(' ')
             num = to_sup(strip_markdown(line[:idx]).rstrip('.'))
             rest_of_line = strip_markdown(line[idx:]).strip()
             passage += num + ' ' + rest_of_line + '\n'
         passage = passage.strip()
 
-        ref_soup = soup.select_one('.main_body2')
-        for tag in ref_soup.select('b'):
+        for tag in bodies[1].select('b'):
             text = strip_markdown(tag.text).strip()
             tag.string = '*' + text.replace(' ', '\a') + '*'
-        reflection = ref_soup.text.strip()
-        application = strip_markdown(soup.select_one('.main_body3').text).strip()
+        reflection = bodies[1].text.strip()
+        application = strip_markdown(bodies[2].text).strip()
         reflection_chunks = to_chunks(reflection)
         application_chunks = to_chunks(application)
         if len(reflection_chunks) == len(application_chunks):
@@ -101,7 +108,7 @@ def get_devo(delta=0):
             chunks = reflection_chunks + application_chunks
         reflection = '\n\n'.join(chunks)
 
-        prayer = strip_markdown(soup.select('.main_body2')[1].text).strip()
+        prayer = strip_markdown(bodies[3].text).strip()
 
         daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
 
