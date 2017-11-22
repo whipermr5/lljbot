@@ -104,10 +104,17 @@ def get_devo(delta=0):
         for line in lines:
             if not line:
                 continue
-            idx = line.find(' ')
-            num = to_sup(strip_markdown(line[:idx]).rstrip('.'))
-            rest_of_line = strip_markdown(line[idx:]).strip()
-            passage += num + ' ' + rest_of_line + '\n'
+            idx = line.find('.')
+            num = strip_markdown(line[:idx]).strip()
+            if num.isdigit():
+                num = to_sup(num)
+                rest_of_line = strip_markdown(line[idx + 1:]).strip()
+                passage += num + ' ' + rest_of_line + '\n'
+            else:
+                unnumbered_line = strip_markdown(line).strip()
+                if ' ' not in unnumbered_line:
+                    unnumbered_line = '_' + unnumbered_line + '_'
+                passage += unnumbered_line + '\n'
         passage = passage.strip()
 
         for tag in bodies[1].select('b'):
