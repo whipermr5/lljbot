@@ -52,6 +52,23 @@ def to_chunks(text):
     chunks.append(current_chunk)
     return chunks
 
+def canonicalise(verse):
+    c_verse = verse.lower().replace('songs', 'song')
+    try:
+        c_verse = scriptures.reference_to_string(*scriptures.extract(c_verse)[0])
+    except:
+        return None
+    first_word = c_verse.partition(' ')[0]
+    if first_word in ('I', 'II', 'III'):
+        c_verse = str(len(first_word)) + c_verse.lstrip('I')
+    elif first_word == 'Psalms':
+        c_verse = 'Psalm' + c_verse[6:]
+    elif first_word == 'Song':
+        c_verse = 'Song of Songs' + c_verse[15:]
+    elif first_word == 'Revelation':
+        c_verse = 'Revelation' + c_verse[26:]
+    return c_verse
+
 def get_devo(delta=0):
     today_date = datetime.utcnow() + timedelta(hours=8, days=delta)
     date_url = today_date.strftime('%Y-%m-%d')
@@ -76,12 +93,11 @@ def get_devo(delta=0):
         bodies = soup.find_all('td', {'align': 'left', 'class': 'padding'})
 
         verse = strip_markdown(bodies[0].find('strong').text)
-        verse = scriptures.reference_to_string(*scriptures.extract(verse)[0])
-        first_word = verse.partition(' ')[0]
-        if first_word in ('I', 'II', 'III'):
-            verse = str(len(first_word)) + verse.lstrip('I')
-        elif first_word == 'Revelation':
-            verse = first_word + verse[26:]
+        c_verse = canonicalise(verse)
+        if c_verse is None:
+            logging.warning('Unrecognised scripture reference: ' + verse)
+            raise Exception
+        verse = c_verse
 
         lines = map(lambda l: l.text.strip(), bodies[0].find('div').find_all('div'))
         passage = ''
