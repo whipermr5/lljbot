@@ -69,7 +69,7 @@ def canonicalise(verse):
         c_verse = 'Revelation' + c_verse[26:]
     return c_verse
 
-def get_devo(delta=0):
+def get_devo_old(delta=0):
     today_date = datetime.utcnow() + timedelta(hours=8, days=delta)
     date_url = today_date.strftime('%Y-%m-%d')
     devo_url = 'http://qt.swim.org/user_dir/living/user_print_web.php?edit_all=' + date_url
@@ -150,9 +150,9 @@ def get_devo(delta=0):
         else:
             return 'Sorry, the LLJ website hasn\'t made tomorrow\'s material available yet.'
 
-def get_devo_old(delta=0):
+def get_devo(delta=0):
     date = (datetime.utcnow() + timedelta(hours=8, days=delta)).strftime('%Y-%m-%d')
-    devo_url = 'http://www.duranno.com/livinglife/qt/reload_default.asp?OD=' + date
+    devo_url = 'http://www.duranno.com/livinglife/qt/reload_default1.asp?OD=' + date
 
     try:
         result = urlfetch.fetch(devo_url, deadline=30)
@@ -160,7 +160,7 @@ def get_devo_old(delta=0):
         logging.warning('Error fetching devo:\n' + str(e))
         return None
 
-    content = result.content.decode('cp949', 'ignore')
+    content = result.content.decode('utf-8', 'ignore')
 
     h = HTMLParser.HTMLParser()
 
@@ -678,8 +678,6 @@ class LljPage(webapp2.RequestHandler):
             send_typing(uid)
             response = get_devo()
             if response == None:
-                response = self.REMOTE_ERROR
-            elif response.startswith('Sorry'):
                 response = get_devo_old()
                 if response == None:
                     response = self.REMOTE_ERROR
@@ -690,8 +688,6 @@ class LljPage(webapp2.RequestHandler):
             send_typing(uid)
             response = get_devo(-1)
             if response == None:
-                response = self.REMOTE_ERROR
-            elif response.startswith('Sorry'):
                 response = get_devo_old(-1)
                 if response == None:
                     response = self.REMOTE_ERROR
@@ -702,8 +698,6 @@ class LljPage(webapp2.RequestHandler):
             send_typing(uid)
             response = get_devo(1)
             if response == None:
-                response = self.REMOTE_ERROR
-            elif response.startswith('Sorry'):
                 response = get_devo_old(1)
                 if response == None:
                     response = self.REMOTE_ERROR
@@ -774,8 +768,6 @@ class SendPage(webapp2.RequestHandler):
 
         devo = get_devo()
         if devo == None:
-            return False
-        elif devo.startswith('Sorry'):
             devo = get_devo_old()
             if devo == None:
                 return False
