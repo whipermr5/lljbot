@@ -225,6 +225,9 @@ def get_devo(delta=0):
             reflection_chunks[i] = make_first_line_bold(reflection_chunks[i])
         reflection = '\n\n'.join(reflection_chunks)
 
+    if not reflection:
+        return None
+
     prayer_start = reflection_end
     prayer_end = content.find('<!-- Share SNS -->')
     prayer = content[prayer_start:prayer_end]
