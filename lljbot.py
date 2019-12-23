@@ -287,6 +287,7 @@ RECOGNISED_ERRORS = ('PEER_ID_INVALID',
                      'Bad Request: chat not found',
                      'Bad Request: PEER_ID_INVALID',
                      'Bad Request: group chat was deactivated',
+                     'Bad Request: have no rights to send a message',
                      RECOGNISED_ERROR_MIGRATE)
 
 def telegram_post(data, deadline=10):
