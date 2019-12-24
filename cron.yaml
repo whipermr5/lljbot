@@ -3,3 +3,7 @@ cron:
   url: /send
   schedule: every day 00:00
   timezone: Asia/Singapore
+# - description: mass greeting
+#   url: /mass
+#   schedule: 25 of dec 00:05
+#   timezone: Asia/Singapore

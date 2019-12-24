@@ -868,16 +868,13 @@ class MassPage(webapp2.RequestHandler):
         #     for user in query.run(batch_size=3000):
         #         uid = str(user.get_uid())
         #         name = user.first_name.encode('utf-8', 'ignore').strip()
-        #         mass_msg = '_"Though our feelings come and go, God\'s love for us does not' + \
-        #                    '." - C.S. Lewis_\n\n'
-        #         mass_msg += '_"This is how we know what love is: Jesus Christ laid down His life for us' + \
-        #                     '." - 1 John 3:16_\n\n'
         #         if user.is_group():
-        #             mass_msg += 'Blessed Christmas, friends in {}!'.format(name)
+        #             mass_msg = 'Merry Christmas, friends in {}!'.format(name)
         #         else:
-        #             mass_msg += 'Blessed Christmas, {}!'.format(name)
-        #         mass_msg += ' May you experience God\'s love and presence in a special way this Christmas! '
+        #             mass_msg = 'Merry Christmas, {}!'.format(name)
+        #         mass_msg += ' This Christmas, may you be filled with peace, joy and the greatest present of all - God\'s presence! '
         #         mass_msg += u'\U0001F31F\U0001F476\U0001F381'.encode('utf-8', 'ignore')
+        #         mass_msg += '\n\n_"The virgin will conceive and give birth to a son, and they will call him Immanuel" (which means "God with us"). - Matthew 1:23_'
 
         #         send_message(user, mass_msg, msg_type='mass', markdown=True)
 
