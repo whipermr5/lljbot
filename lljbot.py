@@ -225,15 +225,15 @@ def get_devo(delta=0):
             reflection_chunks[i] = make_first_line_bold(reflection_chunks[i])
         reflection = '\n\n'.join(reflection_chunks)
 
-    if not reflection:
-        return None
-
     prayer_start = reflection_end
     prayer_end = content.find('<!-- Share SNS -->')
     prayer = content[prayer_start:prayer_end]
     start = prayer.find('<div class="con" style="padding-top:25px;">') + 43
     end = prayer.find('</div>', start)
     prayer = strip_markdown(prep_str(prayer[start:end]))
+
+    if not reflection or not prayer:
+        return None
 
     daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
 
