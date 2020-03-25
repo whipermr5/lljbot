@@ -232,7 +232,7 @@ def get_devo(delta=0):
     end = prayer.find('</div>', start)
     prayer = strip_markdown(prep_str(prayer[start:end]))
 
-    if not reflection or not prayer:
+    if not reflection or not prayer or not passage:
         return None
 
     daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
