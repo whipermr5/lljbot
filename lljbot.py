@@ -432,7 +432,6 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
 
         try:
             result = telegram_post(data)
-            result.raise_for_status()
         except Exception as e:
             logging.warning(LOG_ERROR_SENDING.format(msg_type, uid, user.get_description(), str(e)))
             queue_message()
@@ -814,7 +813,6 @@ class MessagePage():
 
         try:
             result = telegram_post(data, 4)
-            result.raise_for_status()
         except Exception as e:
             logging.warning(LOG_ERROR_SENDING.format(msg_type, uid, user.get_description(), str(e)))
             logging.info(data)
@@ -841,7 +839,6 @@ class MessagePage():
 
 #         try:
 #             result = telegram_photo(data, 4)
-#             result.raise_for_status()
 #         except Exception as e:
 #             logging.warning(LOG_ERROR_SENDING.format('Photo', uid, user.get_description(),
 #                                                      str(e)))
@@ -900,7 +897,6 @@ class VerifyPage():
 
         try:
             result = telegram_query(uid, 4)
-            result.raise_for_status()
         except Exception as e:
             logging.warning(LOG_ERROR_QUERY.format(uid, user.get_description(), str(e)))
             return '', 502
