@@ -549,7 +549,7 @@ class LljPage():
                    'Please enter one of the following commands:'
 
     def post(self, requestJson):
-        logging.debug(requestJson)
+        logging.info(requestJson)
 
         msg = requestJson.get('message')
         if not msg:
@@ -817,13 +817,13 @@ class MessagePage():
             result.raise_for_status()
         except Exception as e:
             logging.warning(LOG_ERROR_SENDING.format(msg_type, uid, user.get_description(), str(e)))
-            logging.debug(data)
+            logging.info(data)
             return '', 502
 
         response = json.loads(result.text)
 
         if handle_response(response, user, uid, msg_type) == False:
-            logging.debug(data)
+            logging.info(data)
             return '', 502
 
         return ''
@@ -845,13 +845,13 @@ class MessagePage():
 #         except Exception as e:
 #             logging.warning(LOG_ERROR_SENDING.format('Photo', uid, user.get_description(),
 #                                                      str(e)))
-#             logging.debug(data)
+#             logging.info(data)
 #             return '', 502
 
 #         response = json.loads(result.text)
 
 #         if handle_response(response, user, uid, 'photo') == False:
-#             logging.debug(data)
+#             logging.info(data)
 #             return '', 502
 #
 #         return ''

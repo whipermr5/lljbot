@@ -1,6 +1,10 @@
 from flask import Flask, request
 from google.appengine.api import wrap_wsgi_app
 
+import google.cloud.logging
+client = google.cloud.logging.Client()
+client.setup_logging()
+
 from lljbot import LljPage, SendPage, MessagePage, PromoPage, VerifyPage
 from secrets import TOKEN
 
