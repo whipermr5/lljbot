@@ -1,10 +1,10 @@
-import webapp2
 import logging
 import json
-import HTMLParser
+import requests
+import html
 import textwrap
 import scriptures
-from google.appengine.api import urlfetch, taskqueue
+from google.appengine.api import taskqueue
 from google.appengine.ext import db
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
@@ -20,17 +20,17 @@ def make_first_line_bold(text):
     return output
 
 def to_sup(text):
-    sups = {u'0': u'\u2070',
-            u'1': u'\xb9',
-            u'2': u'\xb2',
-            u'3': u'\xb3',
-            u'4': u'\u2074',
-            u'5': u'\u2075',
-            u'6': u'\u2076',
-            u'7': u'\u2077',
-            u'8': u'\u2078',
-            u'9': u'\u2079',
-            u'-': u'\u207b'}
+    sups = {'0': '\u2070',
+            '1': '\xb9',
+            '2': '\xb2',
+            '3': '\xb3',
+            '4': '\u2074',
+            '5': '\u2075',
+            '6': '\u2076',
+            '7': '\u2077',
+            '8': '\u2078',
+            '9': '\u2079',
+            '-': '\u207b'}
     return ''.join(sups.get(char, char) for char in text)
 
 def to_chunks(text):
@@ -75,13 +75,14 @@ def get_devo_old(delta=0):
     devo_url = 'http://qt.swim.org/user_dir/living/user_print_web.php?edit_all=' + date_url
 
     try:
-        result = urlfetch.fetch(devo_url, deadline=30)
+        result = requests.get(devo_url, timeout=30)
+        result.raise_for_status()
     except Exception as e:
         logging.warning('Error fetching devo:\n' + str(e))
         return None
 
     try:
-        html = result.content
+        html = result.text
         soup = BeautifulSoup(html, 'lxml')
 
         date = today_date.strftime('%b %-d, %Y ({})').format(today_date.strftime('%a').upper())
@@ -99,7 +100,7 @@ def get_devo_old(delta=0):
             raise Exception
         verse = c_verse
 
-        lines = map(lambda l: l.text.strip(), bodies[0].find('div').find_all('div'))
+        lines = [l.text.strip() for l in bodies[0].find('div').find_all('div')]
         passage = ''
         for line in lines:
             if not line:
@@ -135,11 +136,11 @@ def get_devo_old(delta=0):
 
         daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
 
-        devo = u'\U0001F4C5' + ' ' + daynames[delta + 1] + ' QT - _' + date + '_\n\n' + \
+        devo = '\U0001F4C5' + ' ' + daynames[delta + 1] + ' QT - _' + date + '_\n\n' + \
                '*' + heading + '*\n' + verse + '\n\n' + \
-               u'\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + passage + '\n\n' + \
-               u'\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
-               u'\U0001F64F' + ' *Prayer*\n\n' + prayer
+               '\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + passage + '\n\n' + \
+               '\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
+               '\U0001F64F' + ' *Prayer*\n\n' + prayer
         return devo
 
     except:
@@ -155,21 +156,20 @@ def get_devo(delta=0):
     devo_url = 'http://www.duranno.com/livinglife/qt/reload_default1.asp?OD=' + date
 
     try:
-        result = urlfetch.fetch(devo_url, deadline=30)
+        result = requests.get(devo_url, timeout=30)
+        result.raise_for_status()
     except Exception as e:
         logging.warning('Error fetching devo:\n' + str(e))
         return None
 
-    content = result.content.decode('utf-8', 'ignore')
-
-    h = HTMLParser.HTMLParser()
+    content = result.text
 
     def get_text(html):
         return BeautifulSoup(html, 'lxml').text
 
     def prep_str(string):
         string = string.replace('<br>', '\n')
-        return h.unescape(string).strip()
+        return html.unescape(string).strip()
 
     def prep_passage(string):
         result = ''
@@ -237,11 +237,11 @@ def get_devo(delta=0):
 
     daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
 
-    devo = u'\U0001F4C5' + ' ' + daynames[delta + 1] + ' QT - _' + date + '_\n\n' + \
+    devo = '\U0001F4C5' + ' ' + daynames[delta + 1] + ' QT - _' + date + '_\n\n' + \
            '*' + heading + '*\n' + verse + '\n\n' + \
-           u'\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + passage + '\n\n' + \
-           u'\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
-           u'\U0001F64F' + ' *Prayer*\n\n' + prayer
+           '\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + passage + '\n\n' + \
+           '\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
+           '\U0001F64F' + ' *Prayer*\n\n' + prayer
     return devo
 
 from secrets import TOKEN, ADMIN_ID, BOT_ID, BOTFAMILY_HASH
@@ -291,18 +291,15 @@ RECOGNISED_ERRORS = ('PEER_ID_INVALID',
                      'Bad Request: not enough rights to send text messages to the chat',
                      RECOGNISED_ERROR_MIGRATE)
 
-def telegram_post(data, deadline=10):
-    return urlfetch.fetch(url=TELEGRAM_URL_SEND, payload=data, method=urlfetch.POST,
-                          headers=JSON_HEADER, deadline=deadline)
+def telegram_post(data, timeout=10):
+    return requests.post(TELEGRAM_URL_SEND, data=data, headers=JSON_HEADER, timeout=timeout)
 
-def telegram_query(uid, deadline=10):
+def telegram_query(uid, timeout=10):
     data = json.dumps({'chat_id': uid, 'action': 'typing'})
-    return urlfetch.fetch(url=TELEGRAM_URL_CHAT_ACTION, payload=data, method=urlfetch.POST,
-                          headers=JSON_HEADER, deadline=deadline)
+    return requests.post(TELEGRAM_URL_CHAT_ACTION, data=data, headers=JSON_HEADER, timeout=timeout)
 
-def telegram_photo(data, deadline=10):
-    return urlfetch.fetch(url=TELEGRAM_URL_SEND_PHOTO, payload=data, method=urlfetch.POST,
-                          headers=JSON_HEADER, deadline=deadline)
+def telegram_photo(data, timeout=10):
+    return requests.post(TELEGRAM_URL_SEND_PHOTO, data=data, headers=JSON_HEADER, timeout=timeout)
 
 def get_today_time():
     today = (datetime.utcnow() + timedelta(hours=8)).date()
@@ -324,14 +321,11 @@ class User(db.Model):
         return self.key().name()
 
     def get_name_string(self):
-        def prep(string):
-            return string.encode('utf-8', 'ignore').strip()
-
-        name = prep(self.first_name)
+        name = self.first_name.strip()
         if self.last_name:
-            name += ' ' + prep(self.last_name)
+            name += ' ' + self.last_name.strip()
         if self.username:
-            name += ' @' + prep(self.username)
+            name += ' @' + self.username.strip()
 
         return name
 
@@ -366,7 +360,7 @@ class User(db.Model):
         self.put()
 
     def migrate_to(self, uid):
-        props = dict((prop, getattr(self, prop)) for prop in self.properties().keys())
+        props = dict((prop, getattr(self, prop)) for prop in list(self.properties().keys()))
         props.update(key_name=str(uid))
         new_user = User(**props)
         new_user.put()
@@ -438,12 +432,13 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
 
         try:
             result = telegram_post(data)
+            result.raise_for_status()
         except Exception as e:
             logging.warning(LOG_ERROR_SENDING.format(msg_type, uid, user.get_description(), str(e)))
             queue_message()
             return
 
-        response = json.loads(result.content)
+        response = json.loads(result.text)
         error_description = str(response.get('description'))
 
         if error_description.startswith(RECOGNISED_ERROR_PARSE):
@@ -504,18 +499,11 @@ def handle_response(response, user, uid, msg_type):
 def send_typing(uid):
     data = json.dumps({'chat_id': uid, 'action': 'typing'})
     try:
-        rpc = urlfetch.create_rpc()
-        urlfetch.make_fetch_call(rpc, url=TELEGRAM_URL_CHAT_ACTION, payload=data,
-                                 method=urlfetch.POST, headers=JSON_HEADER)
+        requests.post(TELEGRAM_URL_CHAT_ACTION, data=data, headers=JSON_HEADER, timeout=3)
     except:
         return
 
-class MainPage(webapp2.RequestHandler):
-    def get(self):
-        self.response.headers['Content-Type'] = 'text/plain'
-        self.response.write('LLJBot backend running...\n')
-
-class LljPage(webapp2.RequestHandler):
+class LljPage():
     CMD_LIST = '\n\n' + \
                '/today - get today\'s material\n' + \
                '/yesterday - get yesterday\'s material\n' + \
@@ -560,14 +548,13 @@ class LljPage(webapp2.RequestHandler):
     UNRECOGNISED = 'Sorry {}, I couldn\'t understand that. ' + \
                    'Please enter one of the following commands:'
 
-    def post(self):
-        data = json.loads(self.request.body)
-        logging.debug(self.request.body)
+    def post(self, requestJson):
+        logging.debug(requestJson)
 
-        msg = data.get('message')
+        msg = requestJson.get('message')
         if not msg:
             logging.info(LOG_TYPE_NON_MESSAGE)
-            return
+            return ''
 
         msg_chat = msg.get('chat')
         msg_from = msg.get('from')
@@ -586,22 +573,20 @@ class LljPage(webapp2.RequestHandler):
         user = update_profile(uid, username, first_name, last_name)
 
         actual_id = msg_from.get('id')
-        name = first_name.encode('utf-8', 'ignore').strip()
+        name = first_name.strip()
         actual_username = msg_from.get('username')
         if actual_username:
-            actual_username = actual_username.encode('utf-8', 'ignore').strip()
-        actual_name = msg_from.get('first_name').encode('utf-8', 'ignore').strip()
+            actual_username = actual_username.strip()
+        actual_name = msg_from.get('first_name').strip()
         actual_last_name = msg_from.get('last_name')
         if actual_last_name:
-            actual_last_name = actual_last_name.encode('utf-8', 'ignore').strip()
+            actual_last_name = actual_last_name.strip()
         text = msg.get('text')
-        if text:
-            text = text.encode('utf-8', 'ignore')
 
         if text == '/botfamily_verification_code':
             send_message(user, BOTFAMILY_HASH)
             send_message(ADMIN_ID, 'Botfamily verified! :D')
-            return
+            return ''
 
         def get_from_string():
             name_string = actual_name
@@ -626,7 +611,7 @@ class LljPage(webapp2.RequestHandler):
 
             send_message(ADMIN_ID, msg_dev)
             send_message(user, msg_user)
-            return
+            return ''
 
         if user.last_sent == None or text == '/start':
             if user.last_sent == None:
@@ -659,7 +644,7 @@ class LljPage(webapp2.RequestHandler):
                     new_alert = 'New user: ' + get_from_string()
                 send_message(ADMIN_ID, new_alert)
 
-            return
+            return ''
 
         if text == None:
             logging.info(LOG_TYPE_NON_TEXT)
@@ -668,7 +653,7 @@ class LljPage(webapp2.RequestHandler):
                 new_uid = migrate_to_chat_id
                 user = user.migrate_to(new_uid)
                 logging.info(LOG_USER_MIGRATED.format(uid, new_uid, user.get_description()))
-            return
+            return ''
 
         logging.info(LOG_TYPE_COMMAND + text)
 
@@ -755,7 +740,7 @@ class LljPage(webapp2.RequestHandler):
         else:
             logging.info(LOG_UNRECOGNISED)
             if user.is_group() and '@lljbot' not in cmd:
-                return
+                return ''
 
             response = self.UNRECOGNISED.format(actual_name)
             if user.is_active():
@@ -765,7 +750,9 @@ class LljPage(webapp2.RequestHandler):
 
             send_message(user, response)
 
-class SendPage(webapp2.RequestHandler):
+        return ''
+
+class SendPage():
     def run(self):
         query = User.all()
         query.filter('active =', True)
@@ -789,14 +776,17 @@ class SendPage(webapp2.RequestHandler):
     def get(self):
         if self.run() == False:
             taskqueue.add(url='/send')
+        return ''
 
     def post(self):
         if self.run() == False:
-            self.abort(502)
+            return '', 502
+        return ''
 
-class PromoPage(webapp2.RequestHandler):
+class PromoPage():
     def get(self):
         taskqueue.add(url='/promo')
+        return ''
 
     def post(self):
         three_days_ago = datetime.now() - timedelta(days=3)
@@ -804,7 +794,7 @@ class PromoPage(webapp2.RequestHandler):
         query.filter('promo =', False)
         query.filter('created <', three_days_ago)
         for user in query.run(batch_size=500):
-            name = user.first_name.encode('utf-8', 'ignore').strip()
+            name = user.first_name.strip()
             if user.is_group():
                 promo_msg = 'Hello, friends in {}! Do you find LLJ Bot useful?'.format(name)
             else:
@@ -812,10 +802,11 @@ class PromoPage(webapp2.RequestHandler):
             promo_msg += ' Why not rate it on the bot store (you don\'t have to exit' + \
                          ' Telegram)!\nhttps://telegram.me/storebot?start=lljbot'
             send_message(user, promo_msg, msg_type='promo')
+        return ''
 
-class MessagePage(webapp2.RequestHandler):
-    def post(self):
-        params = json.loads(self.request.body)
+class MessagePage():
+    def post(self, requestData):
+        params = json.loads(requestData)
         msg_type = params.get('msg_type')
         data = params.get('data')
         uid = str(json.loads(data).get('chat_id'))
@@ -823,20 +814,23 @@ class MessagePage(webapp2.RequestHandler):
 
         try:
             result = telegram_post(data, 4)
+            result.raise_for_status()
         except Exception as e:
             logging.warning(LOG_ERROR_SENDING.format(msg_type, uid, user.get_description(), str(e)))
             logging.debug(data)
-            self.abort(502)
+            return '', 502
 
-        response = json.loads(result.content)
+        response = json.loads(result.text)
 
         if handle_response(response, user, uid, msg_type) == False:
             logging.debug(data)
-            self.abort(502)
+            return '', 502
 
-# class PhotoPage(webapp2.RequestHandler):
-#     def post(self):
-#         uid = self.request.body
+        return ''
+
+# class PhotoPage():
+#     def post(self, requestData):
+#         uid = requestData.decode(encoding='utf-8')
 #         user = get_user(uid)
 
 #         build = {
@@ -847,43 +841,47 @@ class MessagePage(webapp2.RequestHandler):
 
 #         try:
 #             result = telegram_photo(data, 4)
+#             result.raise_for_status()
 #         except Exception as e:
 #             logging.warning(LOG_ERROR_SENDING.format('Photo', uid, user.get_description(),
 #                                                      str(e)))
 #             logging.debug(data)
-#             self.abort(502)
+#             return '', 502
 
-#         response = json.loads(result.content)
+#         response = json.loads(result.text)
 
 #         if handle_response(response, user, uid, 'photo') == False:
 #             logging.debug(data)
-#             self.abort(502)
+#             return '', 502
+#
+#         return ''
 
-class MassPage(webapp2.RequestHandler):
+class MassPage():
     def get(self):
         taskqueue.add(url='/mass')
+        return ''
 
     def post(self):
         # try:
         #     query = User.all()
         #     for user in query.run(batch_size=3000):
         #         uid = str(user.get_uid())
-        #         name = user.first_name.encode('utf-8', 'ignore').strip()
+        #         name = user.first_name.strip()
         #         if user.is_group():
         #             mass_msg = 'Merry Christmas, friends in {}!'.format(name)
         #         else:
         #             mass_msg = 'Merry Christmas, {}!'.format(name)
         #         mass_msg += ' This Christmas, may you be filled with peace, joy and the greatest present of all - God\'s presence! '
-        #         mass_msg += u'\U0001F31F\U0001F476\U0001F381'.encode('utf-8', 'ignore')
+        #         mass_msg += '\U0001F31F\U0001F476\U0001F381'
         #         mass_msg += '\n\n_"The virgin will conceive and give birth to a son, and they will call him Immanuel" (which means "God with us"). - Matthew 1:23_'
 
         #         send_message(user, mass_msg, msg_type='mass', markdown=True)
 
         # except Exception as e:
         #     logging.error(e)
-        pass
+        return ''
 
-class VerifyPage(webapp2.RequestHandler):
+class VerifyPage():
     def get(self):
         try:
             query = User.all()
@@ -891,20 +889,21 @@ class VerifyPage(webapp2.RequestHandler):
             for user in query.run(batch_size=3000):
                 uid = str(user.get_uid())
                 taskqueue.add(url='/verify', payload=uid)
-            self.response.headers['Content-Type'] = 'text/plain'
-            self.response.write('Cleanup in progress\n')
+            return 'Cleanup in progress\n'
         except Exception as e:
             logging.error(e)
+            return ''
 
-    def post(self):
-        uid = self.request.body
+    def post(self, requestData):
+        uid = requestData.decode(encoding='utf-8')
         user = get_user(uid)
 
         try:
             result = telegram_query(uid, 4)
+            result.raise_for_status()
         except Exception as e:
             logging.warning(LOG_ERROR_QUERY.format(uid, user.get_description(), str(e)))
-            self.abort(502)
+            return '', 502
 
         response = json.loads(result.content)
         if response.get('ok') == True:
@@ -923,15 +922,6 @@ class VerifyPage(webapp2.RequestHandler):
             else:
                 logging.warning(LOG_USER_UNREACHABLE.format(uid, user.get_description(),
                                                             error_description))
-                self.abort(502)
-
-app = webapp2.WSGIApplication([
-    ('/', MainPage),
-    ('/' + TOKEN, LljPage),
-    ('/send', SendPage),
-    ('/message', MessagePage),
-    ('/promo', PromoPage),
-    ('/mass', MassPage),
-    ('/verify', VerifyPage),
-    # ('/photo', PhotoPage),
-], debug=True)
+                return '', 502
+        
+        return ''

@@ -1,12 +1,8 @@
-import webapp2
 from lljbot import User
 from datetime import datetime, timedelta
 
-class AdminPage(webapp2.RequestHandler):
+class AdminPage():
     def get(self):
-        def prep_str(str):
-            return str.encode('utf-8', 'ignore')
-
         def prep_date(date):
             if date == None:
                 return ''
@@ -15,13 +11,13 @@ class AdminPage(webapp2.RequestHandler):
 
         def prep_active(active):
             if active:
-                return prep_str(u'\U00002714')
+                return '\U00002714'
             else:
                 return ''
 
         def prep_group(uid):
             if int(uid) < 0:
-                return prep_str(u'\U00002714')
+                return '\U00002714'
             else:
                 return ''
 
@@ -46,12 +42,12 @@ class AdminPage(webapp2.RequestHandler):
         result = query.run(limit=limit, offset=offset, batch_size=5000)
         i = 1
         for user in result:
-            uid = prep_str(user.key().name())
-            name = prep_str(user.first_name)
+            uid = user.key().name()
+            name = user.first_name
             if user.last_name:
-                name += ' ' + prep_str(user.last_name)
+                name += ' ' + user.last_name
             if user.username:
-                name += ' @' + prep_str(user.username)
+                name += ' @' + user.username
             ctime = prep_date(user.created)
             rtime = prep_date(user.last_received)
             stime = prep_date(user.last_sent)
@@ -64,7 +60,7 @@ class AdminPage(webapp2.RequestHandler):
             i += 1
         self.response.write('</table>\n</body>\n</html>')
 
-class MigratePage(webapp2.RequestHandler):
+class MigratePage():
     def get(self):
         self.response.headers['Content-Type'] = 'text/plain'
         self.response.write('Migrate page: running...')
@@ -80,7 +76,7 @@ class MigratePage(webapp2.RequestHandler):
         self.response.write(' done!')
         return
 
-app = webapp2.WSGIApplication([
-    ('/admin', AdminPage),
-    ('/migrate', MigratePage),
-], debug=True)
+# app = webapp2.WSGIApplication([
+#     ('/admin', AdminPage),
+#     ('/migrate', MigratePage),
+# ], debug=True)

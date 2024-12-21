@@ -1,14 +1,13 @@
-runtime: python27
-api_version: 1
-threadsafe: yes
+runtime: python312
+app_engine_apis: true
 
 handlers:
-- url: /(admin|migrate)
-  script: admin.app
-  login: admin
+# - url: /(admin|migrate)
+#   script: auto
+#   login: admin
 
 - url: /(send|message|promo|mass|photo|verify)
-  script: lljbot.app
+  script: auto
   login: admin
 
 - url: /favicon.ico
@@ -16,10 +15,4 @@ handlers:
   upload: favicon.ico
 
 - url: /.*
-  script: lljbot.app
-
-libraries:
-- name: webapp2
-  version: "2.5.2"
-- name: lxml
-  version: "2.3"
+  script: auto
