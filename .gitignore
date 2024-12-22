@@ -1,4 +1,2 @@
-lib/
 secrets.py
-*.pyc
-favicon.ico
+__pycache__/
