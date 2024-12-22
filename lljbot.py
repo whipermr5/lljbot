@@ -2,6 +2,7 @@ import logging
 import json
 import requests
 import html
+import re
 import textwrap
 import scriptures
 from google.appengine.api import taskqueue
@@ -11,13 +12,6 @@ from bs4 import BeautifulSoup
 
 def strip_markdown(string):
     return string.replace('*', ' ').replace('_', ' ').replace('`', '\'')
-
-def make_first_line_bold(text):
-    text_split = text.split('\n', 1)
-    output = '*' + text_split[0].strip().replace(' ', '\a') + '*'
-    if len(text_split) > 1:
-        output += '\n' + strip_markdown(text_split[1].strip())
-    return output
 
 def to_sup(text):
     sups = {'0': '\u2070',
@@ -220,10 +214,29 @@ def get_devo(delta=0):
     end = reflection.find('</div>', start)
     reflection = strip_markdown(prep_str(reflection[start:end]))
     reflection_chunks = to_chunks(reflection)
-    if len(reflection_chunks) % 2 == 0:
-        for i in range(0, len(reflection_chunks), 2):
-            reflection_chunks[i] = make_first_line_bold(reflection_chunks[i])
-        reflection = '\n\n'.join(reflection_chunks)
+    if reflection_chunks and reflection_chunks[0].lower() == 'reflection':
+        del reflection_chunks[0]
+    reflection = '\n\n'.join(reflection_chunks)
+
+    reflection_title_regex = re.compile('^.*\([0-9:–\-\s]+\)$')
+    def is_reflection_title(line):
+        return len(line) >= 3 and len(line) <= 100 and reflection_title_regex.match(line)
+    
+    is_preceding_line_reflection_title = False
+    formatted_reflection = ''
+    for reflection_line in reflection.splitlines():
+        if is_reflection_title(reflection_line):
+            reflection_title_bold = '*' + reflection_line.replace(' ', '\a') + '*'
+            formatted_reflection += reflection_title_bold + '\n'
+            is_preceding_line_reflection_title = True
+        elif reflection_line:
+            formatted_reflection += reflection_line + '\n'
+            is_preceding_line_reflection_title = False
+        elif is_preceding_line_reflection_title:
+            is_preceding_line_reflection_title = False
+        else:
+            formatted_reflection += '\n'
+    reflection = formatted_reflection.strip()
 
     prayer_start = reflection_end
     prayer_end = content.find('<!-- Share SNS -->')
