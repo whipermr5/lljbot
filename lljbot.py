@@ -439,7 +439,7 @@ def send_message(user_or_uid, text, msg_type='message', force_reply=False, markd
         if msg_type in ('daily', 'promo', 'mass'):
             if msg_type == 'daily':
                 user.update_last_auto()
-            elif msg_type == 'promo':
+            else:
                 user.set_promo(True)
 
             queue_message()
@@ -870,27 +870,36 @@ class MessagePage():
 
 class MassPage():
     def get(self):
+        # try:
+        #     query = User.all()
+        #     query.filter('promo =', True)
+        #     for user in query.run(batch_size=3000):
+        #         user.set_promo(False)
+        #     return 'Promo flag reset\n'
+        # except Exception as e:
+        #     logging.error(e)
+        #     return ''
         taskqueue.add(url='/mass')
         return ''
 
     def post(self):
         # try:
         #     query = User.all()
+        #     query.filter('promo =', False)
         #     for user in query.run(batch_size=3000):
-        #         uid = str(user.get_uid())
         #         name = user.first_name.strip()
         #         if user.is_group():
         #             mass_msg = 'Merry Christmas, friends in {}!'.format(name)
         #         else:
         #             mass_msg = 'Merry Christmas, {}!'.format(name)
-        #         mass_msg += ' This Christmas, may you be filled with peace, joy and the greatest present of all - God\'s presence! '
-        #         mass_msg += '\U0001F31F\U0001F476\U0001F381'
-        #         mass_msg += '\n\n_"The virgin will conceive and give birth to a son, and they will call him Immanuel" (which means "God with us"). - Matthew 1:23_'
+        #         mass_msg += ' May the Lord fill you with His love, joy and peace as we behold Him this Christmas!'
+        #         mass_msg += '\n\n_"Behold, the virgin shall conceive and bear a son, and they shall call his name Immanuel" (which means, God with us). - Matthew 1:23_'
 
         #         send_message(user, mass_msg, msg_type='mass', markdown=True)
 
         # except Exception as e:
         #     logging.error(e)
+        #     taskqueue.add(url='/mass')
         return ''
 
 class VerifyPage():

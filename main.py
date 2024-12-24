@@ -5,7 +5,7 @@ import google.cloud.logging
 client = google.cloud.logging.Client()
 client.setup_logging()
 
-from lljbot import LljPage, SendPage, MessagePage, PromoPage, VerifyPage
+from lljbot import LljPage, SendPage, MessagePage, PromoPage, MassPage, VerifyPage
 from secrets import TOKEN
 
 app = Flask(__name__)
@@ -15,6 +15,7 @@ lljPage = LljPage()
 sendPage = SendPage()
 messagePage = MessagePage()
 promoPage = PromoPage()
+massPage = MassPage()
 verifyPage = VerifyPage()
 
 @app.route('/', methods=['GET'])
@@ -42,6 +43,13 @@ def promo():
         return promoPage.get()
     else:
         return promoPage.post()
+
+@app.route('/mass', methods=['GET', 'POST'])
+def mass():
+    if request.method == 'GET':
+        return massPage.get()
+    else:
+        return massPage.post()
 
 @app.route('/verify', methods=['GET', 'POST'])
 def verify():
