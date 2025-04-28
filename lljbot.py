@@ -25,7 +25,7 @@ def to_sup(text):
             '8': '\u2078',
             '9': '\u2079',
             '-': '\u207b'}
-    return ''.join(sups.get(char, char) for char in text)
+    return ''.join(sups.get(char, char) for char in str(text))
 
 def to_chunks(text):
     lines = [line.strip() for line in text.strip().splitlines()]
@@ -146,113 +146,83 @@ def get_devo_old(delta=0):
             return 'Sorry, the LLJ website hasn\'t made tomorrow\'s material available yet.'
 
 def get_devo(delta=0):
-    date = (datetime.utcnow() + timedelta(hours=8, days=delta)).strftime('%Y-%m-%d')
-    devo_url = 'http://www.duranno.com/livinglife/qt/reload_default1.asp?OD=' + date
+    utc_offset = 8 + delta * 24
+    qt_date = datetime.utcnow() + timedelta(hours=8, days=delta)
+    date = qt_date.strftime('%b %-d, %Y ({})').format(qt_date.strftime('%a').upper())
+    qt_today_url = f'https://www.du.plus/api/qt/today?memberNo=7491&UTC={utc_offset}&brandNo=57'
 
     try:
-        result = requests.get(devo_url, timeout=30)
+        result = requests.get(qt_today_url, timeout=30)
         result.raise_for_status()
+
+        qt_id = result.json().get('id')
+        qt_detail_url = f'https://www.du.plus/api/web-view/qt/qt-detail?id={qt_id}&userNo=7491&UTC={utc_offset}'
+
+        result = requests.get(qt_detail_url, timeout=30)
+        result.raise_for_status()
+
     except Exception as e:
         logging.warning('Error fetching devo:\n' + str(e))
         return None
 
-    content = result.text
+    qt_data = result.json()
 
-    def get_text(html):
-        return BeautifulSoup(html, 'lxml').text
+    if 'qtTitle' not in qt_data or 'subTitle' not in qt_data or 'bibleList' not in qt_data or 'content' not in qt_data:
+        return None
 
     def prep_str(string):
         string = string.replace('<br>', '\n')
         return html.unescape(string).strip()
 
-    def prep_passage(string):
-        result = ''
-        first = string.find('<!-- bible verse and text -->')
-        string = string[first:]
-        while '<!-- bible verse and text -->' in string:
-            start = string.find('<div class="listTxt">') + 21
-            end = string.find('</div>', start)
-            num = to_sup(prep_str(string[start:end]))
-            start = string.find('<div class="listCon">') + 21
-            end = string.find('</div>', start)
-            text = get_text(prep_str(string[start:end]))
-            result += num + ' ' + strip_markdown(text) + '\n'
-            string = string[end:]
-        return result.strip()
+    heading = strip_markdown(prep_str(qt_data.get('qtTitle')))
+    passage = strip_markdown(prep_str(qt_data.get('subTitle')))
 
-    def get_remote_date(content):
-        start = content.find('var videoNowDate = "') + 20
-        return content[start:start + 10]
+    if not heading or not passage:
+        return None
 
-    if delta != 0 and get_remote_date(content) != date:
-        if delta == -1:
-            return 'Sorry, the LLJ website is no longer hosting yesterday\'s material.'
-        else:
-            return 'Sorry, the LLJ website hasn\'t made tomorrow\'s material available yet.'
+    scripture = ''
+    for verse in qt_data.get('bibleList'):
+        english_translations = [translation for translation in verse.get('dailyQT_Bible') if translation.get('bibleVersionNo') == 7]
+        if len(english_translations) < 1:
+            continue
+        english_translation = english_translations[0]
+        verse_num = english_translation.get('bibleClause')
+        verse_text = english_translation.get('bibleContent')
+        scripture += f'{to_sup(verse_num)} {strip_markdown(prep_str(verse_text))}\n'
+    scripture = scripture.strip()
 
-    title_start = content.find('<!-- today QT -->')
-    title_end = content.find('<!-- bible words -->')
-    title = prep_str(content[title_start:title_end])
-    start = title.find('<div class="today_m">') + 21
-    end = title.find('</div>', start)
-    date = strip_markdown(prep_str(title[start:end]))
-    start = title.find('<div class="title">') + 59
-    end = title.find('</a>', start)
-    heading = strip_markdown(prep_str(title[start:end]))
-    start = title.find('<div class="sub_title">') + 23
-    end = title.find('</div>', start)
-    verse = strip_markdown(prep_str(title[start:end]))
+    if not scripture:
+        return None
 
-    passage_start = title_end
-    passage_end = content.find('<!-- Reflection-->')
-    passage = prep_passage(content[passage_start:passage_end])
+    def collapse_multilines(text):
+        return '\n\n'.join(to_chunks(text))
 
-    reflection_start = passage_end
-    reflection_end = content.find('<!--  Letter to God -->')
-    reflection = content[reflection_start:reflection_end]
-    start = reflection.find('<div class="con">') + 17
-    end = reflection.find('</div>', start)
-    reflection = strip_markdown(prep_str(reflection[start:end]))
-    reflection_chunks = to_chunks(reflection)
-    if reflection_chunks and reflection_chunks[0].lower() == 'reflection':
-        del reflection_chunks[0]
-    reflection = '\n\n'.join(reflection_chunks)
+    def get_formatted_text_sans_quote(html):
+        soup = BeautifulSoup(html, 'lxml')
+        quote_tag = soup.find('p', {'style': re.compile('.*')})
+        if quote_tag:
+            quote_tag.decompose()
+        for title_tag in soup.select('b'):
+            text = strip_markdown(title_tag.text).strip()
+            title_tag.string = '*' + text.replace(' ', '\a') + '*'
+        return soup.text
 
-    reflection_title_regex = re.compile('^.*\([0-9:–\-\s]+\)$')
-    def is_reflection_title(line):
-        return len(line) >= 3 and len(line) <= 100 and reflection_title_regex.match(line)
-    
-    is_preceding_line_reflection_title = False
-    formatted_reflection = ''
-    for reflection_line in reflection.splitlines():
-        if is_reflection_title(reflection_line):
-            reflection_title_bold = '*' + reflection_line.replace(' ', '\a') + '*'
-            formatted_reflection += reflection_title_bold + '\n'
-            is_preceding_line_reflection_title = True
-        elif reflection_line:
-            formatted_reflection += reflection_line + '\n'
-            is_preceding_line_reflection_title = False
-        elif is_preceding_line_reflection_title:
-            is_preceding_line_reflection_title = False
-        else:
-            formatted_reflection += '\n'
-    reflection = formatted_reflection.strip()
+    reflection = ''
+    prayer = ''
+    for content_category in qt_data.get('content'):
+        if content_category.get('dplusCategoryName') == 'Reflection':
+            reflection = collapse_multilines(prep_str(get_formatted_text_sans_quote(content_category.get('content'))))
+        elif content_category.get('dplusCategoryName') in ['Prayer', 'Intercede Together']:
+            prayer = collapse_multilines(prep_str(get_formatted_text_sans_quote(content_category.get('content'))))
 
-    prayer_start = reflection_end
-    prayer_end = content.find('<!-- Share SNS -->')
-    prayer = content[prayer_start:prayer_end]
-    start = prayer.find('<div class="con" style="padding-top:25px;">') + 43
-    end = prayer.find('</div>', start)
-    prayer = strip_markdown(prep_str(prayer[start:end]))
-
-    if not reflection or not prayer or not passage:
+    if not reflection or not prayer:
         return None
 
     daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
 
     devo = '\U0001F4C5' + ' ' + daynames[delta + 1] + ' QT - _' + date + '_\n\n' + \
-           '*' + heading + '*\n' + verse + '\n\n' + \
-           '\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + passage + '\n\n' + \
+           '*' + heading + '*\n' + passage + '\n\n' + \
+           '\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + scripture + '\n\n' + \
            '\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
            '\U0001F64F' + ' *Prayer*\n\n' + prayer
     return devo
