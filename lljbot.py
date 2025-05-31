@@ -63,88 +63,6 @@ def canonicalise(verse):
         c_verse = 'Revelation' + c_verse[26:]
     return c_verse
 
-def get_devo_old(delta=0):
-    today_date = datetime.utcnow() + timedelta(hours=8, days=delta)
-    date_url = today_date.strftime('%Y-%m-%d')
-    devo_url = 'http://qt.swim.org/user_dir/living/user_print_web.php?edit_all=' + date_url
-
-    try:
-        result = requests.get(devo_url, timeout=30)
-        result.raise_for_status()
-    except Exception as e:
-        logging.warning('Error fetching devo:\n' + str(e))
-        return None
-
-    try:
-        html = result.text
-        soup = BeautifulSoup(html, 'lxml')
-
-        date = today_date.strftime('%b %-d, %Y ({})').format(today_date.strftime('%a').upper())
-
-        heading_soup = soup.find('td', {'align': 'center', 'class': 'padding'})
-        heading_soup.find('a', {'class': 'mobile-button'}).decompose()
-        heading = strip_markdown(heading_soup.text).strip()
-
-        bodies = soup.find_all('td', {'align': 'left', 'class': 'padding'})
-
-        verse = strip_markdown(bodies[0].find('strong').text)
-        c_verse = canonicalise(verse)
-        if c_verse is None:
-            logging.warning('Unrecognised scripture reference: ' + verse)
-            raise Exception
-        verse = c_verse
-
-        lines = [l.text.strip() for l in bodies[0].find('div').find_all('div')]
-        passage = ''
-        for line in lines:
-            if not line:
-                continue
-            idx = line.find('.')
-            num = strip_markdown(line[:idx]).strip()
-            if num.isdigit():
-                num = to_sup(num)
-                rest_of_line = strip_markdown(line[idx + 1:]).strip()
-                passage += num + ' ' + rest_of_line + '\n'
-            else:
-                unnumbered_line = strip_markdown(line).strip()
-                if ' ' not in unnumbered_line:
-                    unnumbered_line = '_' + unnumbered_line + '_'
-                passage += unnumbered_line + '\n'
-        passage = passage.strip()
-
-        for tag in bodies[1].select('b'):
-            text = strip_markdown(tag.text).strip()
-            tag.string = '*' + text.replace(' ', '\a') + '*'
-        reflection = bodies[1].text.strip()
-        application = strip_markdown(bodies[2].text).strip()
-        reflection_chunks = to_chunks(reflection)
-        application_chunks = to_chunks(application)
-        if len(reflection_chunks) == len(application_chunks):
-            application_chunks = [line.lstrip('-').lstrip() for line in application_chunks]
-            chunks = [val for pair in zip(reflection_chunks, application_chunks) for val in pair]
-        else:
-            chunks = reflection_chunks + application_chunks
-        reflection = '\n\n'.join(chunks)
-
-        prayer = strip_markdown(bodies[3].text).strip()
-
-        daynames = ['Yesterday\'s', 'Today\'s', 'Tomorrow\'s']
-
-        devo = '\U0001F4C5' + ' ' + daynames[delta + 1] + ' QT - _' + date + '_\n\n' + \
-               '*' + heading + '*\n' + verse + '\n\n' + \
-               '\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + passage + '\n\n' + \
-               '\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
-               '\U0001F64F' + ' *Prayer*\n\n' + prayer
-        return devo
-
-    except:
-        if delta == -1:
-            return 'Sorry, the LLJ website is no longer hosting yesterday\'s material.'
-        elif delta == 0:
-            return 'Sorry, the LLJ website does not have today\'s material yet.'
-        else:
-            return 'Sorry, the LLJ website hasn\'t made tomorrow\'s material available yet.'
-
 def get_devo(delta=0):
     utc_offset = 8 + delta * 24
     qt_date = datetime.utcnow() + timedelta(hours=8, days=delta)
@@ -651,9 +569,7 @@ class LljPage():
             send_typing(uid)
             response = get_devo()
             if response == None:
-                response = get_devo_old()
-                if response == None:
-                    response = self.REMOTE_ERROR
+                response = self.REMOTE_ERROR
 
             send_message(user, response, markdown=True)
 
@@ -661,9 +577,7 @@ class LljPage():
             send_typing(uid)
             response = get_devo(-1)
             if response == None:
-                response = get_devo_old(-1)
-                if response == None:
-                    response = self.REMOTE_ERROR
+                response = self.REMOTE_ERROR
 
             send_message(user, response, markdown=True)
 
@@ -671,9 +585,7 @@ class LljPage():
             send_typing(uid)
             response = get_devo(1)
             if response == None:
-                response = get_devo_old(1)
-                if response == None:
-                    response = self.REMOTE_ERROR
+                response = self.REMOTE_ERROR
 
             send_message(user, response, markdown=True)
 
@@ -743,9 +655,7 @@ class SendPage():
 
         devo = get_devo()
         if devo == None:
-            devo = get_devo_old()
-            if devo == None:
-                return False
+            return False
 
         try:
             for user in query.run(batch_size=5000):
