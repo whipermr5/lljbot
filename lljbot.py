@@ -199,20 +199,19 @@ def get_devo(delta=0):
 
     def get_formatted_text_sans_quote(html):
         soup = BeautifulSoup(html, 'lxml')
-        quote_tag = soup.find('p', {'style': re.compile('.*')})
-        if quote_tag:
-            quote_tag.decompose()
         for title_tag in soup.select('b'):
             text = strip_markdown(title_tag.text).strip()
-            title_tag.string = '*' + text.replace(' ', '\a') + '*'
+            title_tag.string = '\n*' + text.replace(' ', '\a') + '*'
         return soup.text
 
     reflection = ''
     prayer = ''
+    prayer_heading = ''
     for content_category in qt_data.get('content'):
         if content_category.get('dplusCategoryName') == 'Reflection':
             reflection = collapse_multilines(prep_str(get_formatted_text_sans_quote(content_category.get('content'))))
-        elif content_category.get('dplusCategoryName') in ['Prayer', 'Intercede Together']:
+        elif content_category.get('dplusCategoryName') in ['Prayer', 'Intercede Together', 'Family Devotional']:
+            prayer_heading = content_category.get('dplusCategoryName')
             prayer = collapse_multilines(prep_str(get_formatted_text_sans_quote(content_category.get('content'))))
 
     if not reflection or not prayer:
@@ -224,7 +223,7 @@ def get_devo(delta=0):
            '*' + heading + '*\n' + passage + '\n\n' + \
            '\U0001F4D9' + ' *Scripture* _(NIV)_\n\n' + scripture + '\n\n' + \
            '\U0001F4DD' + ' *Reflection*\n\n' + reflection + '\n\n' + \
-           '\U0001F64F' + ' *Prayer*\n\n' + prayer
+           '\U0001F64F' + ' *' + prayer_heading.replace(' ', '\a') + '*\n\n' + prayer
     return devo
 
 from secrets import TOKEN, ADMIN_ID, BOT_ID, BOTFAMILY_HASH
