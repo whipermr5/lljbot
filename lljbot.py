@@ -767,15 +767,10 @@ class MassPage():
         #     query.filter('promo =', False)
         #     for user in query.run(batch_size=3000):
         #         name = user.first_name.strip()
-        #         if user.is_group():
-        #             mass_msg = 'Merry Christmas, friends in {}!'.format(name)
-        #         else:
-        #             mass_msg = 'Merry Christmas, {}!'.format(name)
-        #         mass_msg += ' May the Lord fill you with His love, joy and peace as we behold Him this Christmas!'
-        #         mass_msg += '\n\n_"Behold, the virgin shall conceive and bear a son, and they shall call his name Immanuel" (which means, God with us). - Matthew 1:23_'
-
-        #         send_message(user, mass_msg, msg_type='mass', markdown=True)
-
+        #         if not user.is_group():
+        #             mass_msg = '_"For to us a child is born, to us a son is given, and the government will be on his shoulders. And he will be called Wonderful Counselor, Mighty God, Everlasting Father, Prince of Peace." - Isaiah 9:6_'
+        #             mass_msg += '\n\nMerry Christmas, {}!'.format(name)
+        #             send_message(user, mass_msg, msg_type='mass', markdown=True)
         # except Exception as e:
         #     logging.error(e)
         #     taskqueue.add(url='/mass')
